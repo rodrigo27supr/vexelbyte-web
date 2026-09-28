@@ -1,6 +1,8 @@
 package com.vexelbyte.articulos;
 
+import java.time.Clock;
 import java.time.Duration;
+import java.time.OffsetDateTime;
 import java.util.List;
 import org.springframework.http.CacheControl;
 import org.springframework.http.MediaType;
@@ -29,20 +31,26 @@ class ServicioLecturaArticulos {
   // para que builds seguidos no la pidan de nuevo.
   private static final Duration CACHE_FOTOS = Duration.ofDays(1);
 
+  // Un dia cubre varios ciclos: si la foto sigue fallando, la noticia sale
+  // con la portada de datos antes que quedarse oculta para siempre.
+  private static final Duration ESPERA_MAXIMA_FOTO = Duration.ofDays(1);
+
   private final ArticuloRepository repositorioArticulos;
   private final FotoArticuloAlmacenadaRepository repositorioFotos;
   private final ObjectMapper mapeadorJson;
+  private final Clock reloj;
 
   ServicioLecturaArticulos(
       ArticuloRepository repositorioArticulos, FotoArticuloAlmacenadaRepository repositorioFotos,
-      ObjectMapper mapeadorJson) {
+      ObjectMapper mapeadorJson, Clock reloj) {
     this.repositorioArticulos = repositorioArticulos;
     this.repositorioFotos = repositorioFotos;
     this.mapeadorJson = mapeadorJson;
+    this.reloj = reloj;
   }
 
   List<ArticuloResumenResponse> listarPublicados() {
-    return repositorioArticulos.findByBorradorFalseOrderByFechaPublicacionDesc().stream()
+    return repositorioArticulos.buscarPublicados(calcularLimiteSinFoto()).stream()
         .map(articulo -> ArticuloResumenResponse.desde(
             articulo, extraerDatosClave(leerListaJson(articulo.getEspecificacionesJson(), TIPO_LISTA_ESPECIFICACIONES))))
         .toList();
@@ -61,7 +69,7 @@ class ServicioLecturaArticulos {
 
   // Un articulo despublicado da 404 aunque se conozca su slug exacto.
   ResponseEntity<ArticuloDetalleResponse> obtenerPorSlug(String slug) {
-    return repositorioArticulos.findBySlugAndBorradorFalse(slug)
+    return repositorioArticulos.buscarPublicadoPorSlug(slug, calcularLimiteSinFoto())
         .map(this::construirDetalle)
         .map(ResponseEntity::ok)
         .orElseGet(() -> ResponseEntity.notFound().build());
@@ -69,13 +77,17 @@ class ServicioLecturaArticulos {
 
   // Igual que el detalle: la foto de un articulo despublicado da 404.
   ResponseEntity<byte[]> obtenerFoto(String slug) {
-    return repositorioArticulos.findBySlugAndBorradorFalse(slug)
+    return repositorioArticulos.buscarPublicadoPorSlug(slug, calcularLimiteSinFoto())
         .flatMap(articulo -> repositorioFotos.findById(articulo.getId()))
         .map(foto -> ResponseEntity.ok()
             .contentType(MediaType.parseMediaType(foto.getTipoContenido()))
             .cacheControl(CacheControl.maxAge(CACHE_FOTOS).cachePublic())
             .body(foto.getContenido()))
         .orElseGet(() -> ResponseEntity.notFound().build());
+  }
+
+  private OffsetDateTime calcularLimiteSinFoto() {
+    return OffsetDateTime.now(reloj).minus(ESPERA_MAXIMA_FOTO);
   }
 
   private ArticuloDetalleResponse construirDetalle(Articulo articulo) {

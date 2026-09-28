@@ -13,12 +13,23 @@ public interface ArticuloRepository extends JpaRepository<Articulo, Long> {
 
   boolean existsByIdExternoFuente(String idExternoFuente);
 
-  // Filtro borrador=false en la propia consulta, no en Java despues de traer
-  // todo: un articulo despublicado nunca pasa por la capa de aplicacion en
-  // una respuesta publica, ni por accidente.
-  List<Articulo> findByBorradorFalseOrderByFechaPublicacionDesc();
+  // Filtro en la propia consulta, no en Java despues de traer todo: un
+  // articulo despublicado nunca pasa por la capa de aplicacion en una
+  // respuesta publica. Uno recien redactado espera a que el ciclo le busque
+  // foto (una build en ese hueco lo publicaba con la portada de datos), salvo
+  // que la foto lleve fallando desde antes de limiteSinFoto.
+  @Query("""
+      select articulo from Articulo articulo
+      where articulo.borrador = false and (articulo.fotoRevisada = true or articulo.fechaCreacion < :limiteSinFoto)
+      order by articulo.fechaPublicacion desc""")
+  List<Articulo> buscarPublicados(@Param("limiteSinFoto") OffsetDateTime limiteSinFoto);
 
-  Optional<Articulo> findBySlugAndBorradorFalse(String slug);
+  @Query("""
+      select articulo from Articulo articulo
+      where articulo.slug = :slug and articulo.borrador = false
+        and (articulo.fotoRevisada = true or articulo.fechaCreacion < :limiteSinFoto)""")
+  Optional<Articulo> buscarPublicadoPorSlug(
+      @Param("slug") String slug, @Param("limiteSinFoto") OffsetDateTime limiteSinFoto);
 
   List<Articulo> findTop50ByBorradorFalseAndFotoRevisadaFalseOrderByFechaPublicacionDesc();
 

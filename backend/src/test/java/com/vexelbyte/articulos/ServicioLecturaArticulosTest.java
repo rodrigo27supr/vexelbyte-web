@@ -1,10 +1,15 @@
 package com.vexelbyte.articulos;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -16,7 +21,8 @@ class ServicioLecturaArticulosTest {
 
   private final ArticuloRepository repositorioArticulos = mock(ArticuloRepository.class);
   private final ServicioLecturaArticulos servicioLectura =
-      new ServicioLecturaArticulos(repositorioArticulos, mock(FotoArticuloAlmacenadaRepository.class), new ObjectMapper());
+      new ServicioLecturaArticulos(repositorioArticulos, mock(FotoArticuloAlmacenadaRepository.class), new ObjectMapper(),
+          Clock.fixed(Instant.parse("2027-03-16T08:00:00Z"), ZoneOffset.UTC));
 
   private Articulo construirArticuloPublicado(String slug) {
     Articulo articulo = new Articulo();
@@ -35,7 +41,7 @@ class ServicioLecturaArticulosTest {
     Articulo articulo = construirArticuloPublicado("oppo-k14-plus");
     articulo.setCategoria(CategoriaArticulo.MOVILES);
     articulo.setProducto("Oppo K14 Plus");
-    when(repositorioArticulos.findByBorradorFalseOrderByFechaPublicacionDesc()).thenReturn(List.of(articulo));
+    when(repositorioArticulos.buscarPublicados(any())).thenReturn(List.of(articulo));
 
     List<ArticuloResumenResponse> resultado = servicioLectura.listarPublicados();
 
@@ -61,7 +67,7 @@ class ServicioLecturaArticulosTest {
     conFoto.setFotoAutor("Kyu3a");
     conFoto.setFotoLicencia("CC BY-SA 4.0");
     Articulo sinFoto = construirArticuloPublicado("sin-foto");
-    when(repositorioArticulos.findByBorradorFalseOrderByFechaPublicacionDesc()).thenReturn(List.of(conFoto, sinFoto));
+    when(repositorioArticulos.buscarPublicados(any())).thenReturn(List.of(conFoto, sinFoto));
 
     List<ArticuloResumenResponse> resultado = servicioLectura.listarPublicados();
 
@@ -79,7 +85,7 @@ class ServicioLecturaArticulosTest {
     Articulo articulo = construirArticuloPublicado("oppo-k14-plus");
     articulo.setEspecificacionesJson("[{\"nombre\":\"Batería\",\"valor\":\"8000 mAh\"}]");
     articulo.setPuntosClaveJson("[\"Batería enorme\"]");
-    when(repositorioArticulos.findBySlugAndBorradorFalse("oppo-k14-plus")).thenReturn(Optional.of(articulo));
+    when(repositorioArticulos.buscarPublicadoPorSlug(eq("oppo-k14-plus"), any())).thenReturn(Optional.of(articulo));
 
     ResponseEntity<ArticuloDetalleResponse> respuesta = servicioLectura.obtenerPorSlug("oppo-k14-plus");
 
@@ -91,7 +97,7 @@ class ServicioLecturaArticulosTest {
 
   @Test
   void devuelveListasVaciasNuncaNulasCuandoElArticuloNoTieneDatosEditoriales() {
-    when(repositorioArticulos.findBySlugAndBorradorFalse("sin-datos"))
+    when(repositorioArticulos.buscarPublicadoPorSlug(eq("sin-datos"), any()))
         .thenReturn(Optional.of(construirArticuloPublicado("sin-datos")));
 
     ArticuloDetalleResponse detalle = servicioLectura.obtenerPorSlug("sin-datos").getBody();
@@ -102,7 +108,7 @@ class ServicioLecturaArticulosTest {
 
   @Test
   void obtenerPorSlugDevuelve404CuandoNoExisteOEstaDespublicado() {
-    when(repositorioArticulos.findBySlugAndBorradorFalse("no-existe")).thenReturn(Optional.empty());
+    when(repositorioArticulos.buscarPublicadoPorSlug(eq("no-existe"), any())).thenReturn(Optional.empty());
 
     ResponseEntity<ArticuloDetalleResponse> respuesta = servicioLectura.obtenerPorSlug("no-existe");
 

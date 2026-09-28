@@ -72,6 +72,26 @@ class LecturaPublicaArticulosSeguridadTest {
   }
 
   @Test
+  void unaNoticiaRecienRedactadaEsperaASuFotoSalvoQueLleveMasDeUnDiaFallando() {
+    Articulo recienRedactada = construirArticulo("recien-redactada", false);
+    recienRedactada.setFotoRevisada(false);
+    Articulo fotoFallandoDesdeAyer = construirArticulo("foto-fallando-desde-ayer", false);
+    fotoFallandoDesdeAyer.setFotoRevisada(false);
+    fotoFallandoDesdeAyer.setFechaCreacion(OffsetDateTime.now().minusHours(25));
+    repositorioArticulos.save(recienRedactada);
+    repositorioArticulos.save(fotoFallandoDesdeAyer);
+
+    ArticuloResumenResponse[] listado = clienteHttpPrueba.get().uri("/api/articulos")
+        .exchange()
+        .expectStatus().isOk()
+        .returnResult(ArticuloResumenResponse[].class)
+        .getResponseBody();
+
+    assertThat(listado).extracting(ArticuloResumenResponse::slug).containsExactly("foto-fallando-desde-ayer");
+    clienteHttpPrueba.get().uri("/api/articulos/recien-redactada").exchange().expectStatus().isNotFound();
+  }
+
+  @Test
   void elDetalleIncluyeLaFichaTecnicaYLosPuntosClaveGuardadosComoJson() {
     Articulo articulo = construirArticulo("oppo-k14-plus", false);
     articulo.setCategoria(CategoriaArticulo.MOVILES);
@@ -129,6 +149,7 @@ class LecturaPublicaArticulosSeguridadTest {
     articulo.setFechaCreacion(OffsetDateTime.now());
     articulo.setAutor("Equipo VexelByte");
     articulo.setBorrador(borrador);
+    articulo.setFotoRevisada(true);
     return articulo;
   }
 }
