@@ -19,6 +19,10 @@ import com.vexelbyte.automatizacion.ia.ClasificadorImagenesIA;
 import com.vexelbyte.automatizacion.ia.ClasificadorImagenesIA.RevisionImagen;
 import com.vexelbyte.automatizacion.ia.ImagenParaIA;
 import com.vexelbyte.automatizacion.ia.SinProveedorIADisponibleException;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.IntStream;
@@ -33,6 +37,7 @@ class ServicioFotosArticulosTest {
   private static final String URL_IMAGEN_PEXELS = "https://images.pexels.com/photos/1/foto.jpeg?w=1200";
   private static final ImagenDescargada IMAGEN_GRANDE =
       new ImagenDescargada(new byte[] {1, 2, 3}, "image/jpeg", 2133, 1200);
+  private static final Instant AHORA = Instant.parse("2026-09-29T08:00:00Z");
   private static final FotoIlustrativa FOTO_PEXELS =
       new FotoIlustrativa(URL_IMAGEN_PEXELS, "Ana Fotógrafa", "https://www.pexels.com/photo/1/");
 
@@ -44,7 +49,7 @@ class ServicioFotosArticulosTest {
   private final CompresorImagenes compresorImagenes = mock(CompresorImagenes.class);
   private final ServicioFotosArticulos servicioFotos = new ServicioFotosArticulos(
       repositorioArticulos, repositorioFotos, clienteImagenFuente, clasificadorImagenes, clientePexels,
-      compresorImagenes);
+      compresorImagenes, Clock.fixed(AHORA, ZoneOffset.UTC));
 
   @BeforeEach
   void configurarPexelsYCompresor() {
@@ -62,6 +67,7 @@ class ServicioFotosArticulosTest {
     articulo.setProducto("Oppo K14 Plus");
     articulo.setCategoria(CategoriaArticulo.MOVILES);
     articulo.setEnlaceFuente("https://www.gsmarena.com/noticia-" + identificador + ".php");
+    articulo.setFechaCreacion(OffsetDateTime.ofInstant(AHORA, ZoneOffset.UTC).minusHours(1));
     return articulo;
   }
 
@@ -197,6 +203,28 @@ class ServicioFotosArticulosTest {
     assertThat(primero.isFotoRevisada()).isFalse();
     assertThat(segundo.isFotoRevisada()).isFalse();
     verify(clientePexels, never()).buscarFoto(anyString(), any());
+  }
+
+  @Test
+  void sinVisionPoneFotoDePexelsSoloALasNoticiasQueLlevanMasDeDoceHorasEsperando() {
+    Articulo reciente = articuloDe(1L);
+    Articulo atrasada = articuloDe(2L);
+    atrasada.setFechaCreacion(OffsetDateTime.ofInstant(AHORA, ZoneOffset.UTC).minusHours(13));
+    simularPendientes(List.of(reciente, atrasada));
+    simularImagenDeLaFuente(IMAGEN_GRANDE);
+    when(clasificadorImagenes.revisarImagen(any(ImagenParaIA.class), anyString(), anyString()))
+        .thenThrow(new SinProveedorIADisponibleException("modelos retirados"));
+    when(clientePexels.buscarFoto(eq("smartphone"), any())).thenReturn(Optional.of(FOTO_PEXELS));
+
+    servicioFotos.completarFotosPendientes();
+
+    // La reciente espera a que vuelva la vision; la atrasada no se queda sin foto.
+    assertThat(reciente.isFotoRevisada()).isFalse();
+    assertThat(atrasada.isFotoRevisada()).isTrue();
+    assertThat(atrasada.getFotoUrl()).isEqualTo(URL_IMAGEN_PEXELS);
+    assertThat(atrasada.isFotoEsIlustrativa()).isTrue();
+    // Tras el primer rechazo no vuelve a pedir vision en el mismo ciclo.
+    verify(clasificadorImagenes, times(1)).revisarImagen(any(ImagenParaIA.class), anyString(), anyString());
   }
 
   @Test

@@ -9,6 +9,9 @@ import com.vexelbyte.automatizacion.ia.ClasificadorImagenesIA;
 import com.vexelbyte.automatizacion.ia.ClasificadorImagenesIA.RevisionImagen;
 import com.vexelbyte.automatizacion.ia.ImagenParaIA;
 import com.vexelbyte.automatizacion.ia.SinProveedorIADisponibleException;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -34,6 +37,12 @@ public class ServicioFotosArticulos {
   // tardaba tres ciclos, y con 25 se completa en uno.
   private static final int MAXIMO_REVISIONES_POR_CICLO = 25;
 
+  // Sin agente de vision (cuota agotada o modelos de Gemini retirados), una
+  // noticia espera a que vuelva para validar la foto oficial; pasado este
+  // plazo lleva ya un ciclo con cuota nueva sin exito y recibe una de Pexels,
+  // que no necesita IA. Es menor que el dia que la API la tiene oculta.
+  private static final Duration ESPERA_MAXIMA_VISION = Duration.ofHours(12);
+
   // Por debajo se ve pixelada en la cabecera del articulo.
   private static final int ANCHO_MINIMO_FOTO = 800;
 
@@ -56,17 +65,19 @@ public class ServicioFotosArticulos {
   private final ClasificadorImagenesIA clasificadorImagenes;
   private final ClientePexels clientePexels;
   private final CompresorImagenes compresorImagenes;
+  private final Clock reloj;
 
   public ServicioFotosArticulos(
       ArticuloRepository repositorioArticulos, FotoArticuloAlmacenadaRepository repositorioFotos,
       ClienteImagenFuente clienteImagenFuente, ClasificadorImagenesIA clasificadorImagenes,
-      ClientePexels clientePexels, CompresorImagenes compresorImagenes) {
+      ClientePexels clientePexels, CompresorImagenes compresorImagenes, Clock reloj) {
     this.repositorioArticulos = repositorioArticulos;
     this.repositorioFotos = repositorioFotos;
     this.clienteImagenFuente = clienteImagenFuente;
     this.clasificadorImagenes = clasificadorImagenes;
     this.clientePexels = clientePexels;
     this.compresorImagenes = compresorImagenes;
+    this.reloj = reloj;
   }
 
   @Transactional
@@ -76,15 +87,24 @@ public class ServicioFotosArticulos {
         .limit(MAXIMO_REVISIONES_POR_CICLO)
         .toList();
     int fotosGuardadas = 0;
+    boolean hayProveedorDeVision = true;
     for (Articulo articulo : articulosPendientes) {
       try {
-        fotosGuardadas += revisarArticulo(articulo) ? 1 : 0;
-        articulo.setFotoRevisada(true);
-      } catch (SinProveedorIADisponibleException sinProveedor) {
-        // Sin cuota de vision no tiene sentido seguir: el resto espera al siguiente ciclo.
-        REGISTRO.warn("Sin proveedor de IA para revisar imagenes; dejo {} articulos para otro ciclo",
-            articulosPendientes.size() - articulosPendientes.indexOf(articulo));
-        break;
+        if (hayProveedorDeVision) {
+          try {
+            fotosGuardadas += revisarArticulo(articulo) ? 1 : 0;
+            articulo.setFotoRevisada(true);
+            continue;
+          } catch (SinProveedorIADisponibleException sinProveedor) {
+            REGISTRO.warn("Sin proveedor de IA para revisar imagenes; solo pongo foto de Pexels a las noticias "
+                + "que llevan mas de {} h esperando", ESPERA_MAXIMA_VISION.toHours());
+            hayProveedorDeVision = false;
+          }
+        }
+        if (haAgotadoLaEsperaDeVision(articulo)) {
+          fotosGuardadas += ponerFotoIlustrativa(articulo, Optional.empty()) ? 1 : 0;
+          articulo.setFotoRevisada(true);
+        }
       } catch (RuntimeException falloFuente) {
         // Sin marcarlo como revisado: se reintenta en el siguiente ciclo.
         REGISTRO.warn("No pude obtener la imagen de '{}': {}", articulo.getTitulo(), falloFuente.getMessage());
@@ -93,6 +113,10 @@ public class ServicioFotosArticulos {
     if (!articulosPendientes.isEmpty()) {
       REGISTRO.info("Fotos: {} guardadas de {} articulos revisados", fotosGuardadas, articulosPendientes.size());
     }
+  }
+
+  private boolean haAgotadoLaEsperaDeVision(Articulo articulo) {
+    return articulo.getFechaCreacion().isBefore(OffsetDateTime.now(reloj).minus(ESPERA_MAXIMA_VISION));
   }
 
   private boolean revisarArticulo(Articulo articulo) {
