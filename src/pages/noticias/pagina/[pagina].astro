@@ -1,0 +1,46 @@
+---
+import LayoutBase from '../../../layouts/LayoutBase.astro';
+import ArchivoNoticias from '../../../components/contenido/ArchivoNoticias.astro';
+import { obtenerArticulosPublicados } from '../../../lib/api-articulos';
+import { contarPaginasArchivo, obtenerNoticiasDePagina } from '../../../lib/archivo-noticias';
+
+// Paginas 2 en adelante del archivo; la primera es /noticias/.
+export async function getStaticPaths() {
+  const noticias = await obtenerArticulosPublicados();
+  const totalPaginas = contarPaginasArchivo(noticias);
+  return Array.from({ length: totalPaginas - 1 }, (_paginaVacia, posicion) => {
+    const numeroPagina = posicion + 2;
+    return {
+      params: { pagina: String(numeroPagina) },
+      props: { noticiasPagina: obtenerNoticiasDePagina(noticias, numeroPagina), numeroPagina, totalPaginas },
+    };
+  });
+}
+
+interface Props {
+  noticiasPagina: Awaited<ReturnType<typeof obtenerArticulosPublicados>>;
+  numeroPagina: number;
+  totalPaginas: number;
+}
+
+const { noticiasPagina, numeroPagina, totalPaginas } = Astro.props;
+---
+
+<LayoutBase
+  titulo={`Noticias, página ${numeroPagina}`}
+  descripcion={`Archivo de noticias de VexelByte, página ${numeroPagina} de ${totalPaginas}.`}
+>
+  <section class="mx-auto max-w-portal px-4 py-12 sm:px-6 sm:py-16">
+    <nav aria-label="Migas de pan" class="text-sm text-texto-secundario">
+      <a href="/" class="underline-offset-4 hover:text-acento-texto hover:underline">Inicio</a>
+      <span aria-hidden="true" class="mx-2">/</span>
+      <a href="/noticias/" class="underline-offset-4 hover:text-acento-texto hover:underline">Noticias</a>
+    </nav>
+    <h1 class="mt-4 text-4xl sm:text-5xl">Noticias<span class="text-texto-secundario">, página {numeroPagina}</span></h1>
+    <h2 class="sr-only">Noticias de la página {numeroPagina}</h2>
+    <div class="mt-10">
+      <ArchivoNoticias
+        rutaBase="/noticias/" noticias={noticiasPagina} paginaActual={numeroPagina} totalPaginas={totalPaginas} />
+    </div>
+  </section>
+</LayoutBase>

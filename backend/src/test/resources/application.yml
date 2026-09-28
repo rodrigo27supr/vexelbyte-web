@@ -1,0 +1,36 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:vexelbyte-test;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: create-drop
+  flyway:
+    # Las migraciones son SQL especifico de Postgres (JSONB, TIMESTAMPTZ) —
+    # en test dejo que Hibernate genere el esquema en H2 a partir de las
+    # entidades en vez de correr las migraciones reales.
+    enabled: false
+
+vexelbyte:
+  feed-hardware:
+    urls-feed: https://feed-de-prueba.invalid/rss
+    cantidad-maxima-por-ciclo: 5
+  ia:
+    # application.yml de test no hereda los valores del de main (el classpath
+    # de test resuelve el suyo propio primero y por completo): declaro un unico
+    # eslabon con clave ficticia para que la cadena de IA se construya.
+    gemini:
+      api-key: clave-de-prueba
+      modelos: modelo-de-prueba
+      url-base: https://gemini.invalid
+      llamadas-por-minuto: 5
+  busqueda:
+    tavily:
+      api-key:
+      url-base: https://tavily.invalid
+  imagenes:
+    pexels:
+      api-key:
+      url-base: https://pexels.invalid

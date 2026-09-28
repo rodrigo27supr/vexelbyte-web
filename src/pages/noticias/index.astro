@@ -1,0 +1,26 @@
+---
+import LayoutBase from '../../layouts/LayoutBase.astro';
+import ArchivoNoticias from '../../components/contenido/ArchivoNoticias.astro';
+import { obtenerArticulosPublicados } from '../../lib/api-articulos';
+import { contarPaginasArchivo, obtenerNoticiasDePagina } from '../../lib/archivo-noticias';
+
+const noticias = await obtenerArticulosPublicados();
+---
+
+<LayoutBase titulo="Noticias" descripcion="Últimas noticias de hardware de PC, smartphones y tablets publicadas en VexelByte.">
+  <section class="mx-auto max-w-portal px-4 py-12 sm:px-6 sm:py-16">
+    <h1 class="text-4xl sm:text-5xl">Noticias</h1>
+    <p class="mt-4 max-w-prose text-texto-secundario">Lo último en hardware de PC, smartphones, tablets, periféricos y rendimiento.</p>
+    {/* h2 solo para lectores de pantalla: sin el, la jerarquia salta de h1 a
+       los h3 de cada tarjeta y el esquema del documento queda con un hueco. */}
+    <h2 class="sr-only">Últimas noticias publicadas</h2>
+    <div class="mt-10">
+      <ArchivoNoticias
+        rutaBase="/noticias/"
+        noticias={obtenerNoticiasDePagina(noticias, 1)}
+        paginaActual={1}
+        totalPaginas={contarPaginasArchivo(noticias)}
+      />
+    </div>
+  </section>
+</LayoutBase>

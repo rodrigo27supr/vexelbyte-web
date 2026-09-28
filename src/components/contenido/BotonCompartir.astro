@@ -1,0 +1,53 @@
+---
+// Compartir con el menu nativo del sistema (movil y la mayoria de escritorios)
+// y, donde no existe, copiando el enlace. Sin botones de redes sociales: sus
+// scripts rastrean al lector y la CSP no admite origenes de terceros.
+interface Props {
+  titulo: string;
+}
+
+const { titulo } = Astro.props;
+---
+
+<button
+  type="button"
+  data-boton-compartir
+  data-titulo={titulo}
+  class="inline-flex min-h-10 items-center gap-2 rounded-full border border-borde bg-superficie px-4 text-sm font-semibold text-texto-primario transition-[border-color,color] duration-200 hover:border-acento-texto hover:text-acento-texto active:translate-y-px"
+>
+  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 3v12"></path>
+    <path d="m7 8 5-5 5 5"></path>
+    <path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"></path>
+  </svg>
+  <span data-texto-compartir>Compartir</span>
+</button>
+
+<script>
+  const TIEMPO_AVISO_COPIADO_MS = 2000;
+
+  for (const botonCompartir of document.querySelectorAll<HTMLButtonElement>('[data-boton-compartir]')) {
+    const textoBoton = botonCompartir.querySelector<HTMLElement>('[data-texto-compartir]')!;
+
+    botonCompartir.addEventListener('click', async () => {
+      const datosCompartir = { title: botonCompartir.dataset.titulo, url: location.href };
+      if (navigator.share) {
+        try {
+          await navigator.share(datosCompartir);
+        } catch (errorCompartir) {
+          // Cerrar el menu nativo sin elegir destino tambien llega aqui: no es un error del lector.
+        }
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(location.href);
+        textoBoton.textContent = 'Enlace copiado';
+      } catch (errorPortapapeles) {
+        textoBoton.textContent = 'No se pudo copiar';
+      }
+      setTimeout(() => {
+        textoBoton.textContent = 'Compartir';
+      }, TIEMPO_AVISO_COPIADO_MS);
+    });
+  }
+</script>

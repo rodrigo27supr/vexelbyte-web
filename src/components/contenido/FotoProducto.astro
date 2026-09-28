@@ -1,0 +1,113 @@
+---
+import { Image } from 'astro:assets';
+import type { FotoArticulo } from '../../lib/api-articulos';
+import { obtenerRellenoBordeImagen } from '../../lib/color-borde-imagen';
+
+// Imagen de prensa del fabricante que trae la noticia de origen. Astro la
+// descarga en el build y la sirve optimizada desde nuestro dominio, en varios
+// anchos: el movil no descarga la version de escritorio.
+interface Props {
+  foto: FotoArticulo;
+  alt: string;
+  variante: 'tarjeta' | 'destacada' | 'cabecera' | 'miniatura';
+  // Solo la imagen que marca el LCP de la pagina: la destacada de portada y
+  // la cabecera del articulo. El resto se carga al acercarse a la vista.
+  esPrioritaria?: boolean;
+}
+
+const { foto, alt, variante, esPrioritaria = false } = Astro.props;
+
+const tamanosPorVariante = {
+  tarjeta: '(min-width: 1024px) 380px, (min-width: 640px) 50vw, 100vw',
+  destacada: '(min-width: 1024px) 740px, 100vw',
+  cabecera: '(min-width: 1152px) 1104px, 100vw',
+  miniatura: '160px',
+};
+
+const proporcionPorVariante = {
+  tarjeta: 'aspect-video',
+  destacada: 'aspect-video',
+  // En la cabecera del articulo, panoramica desde tablet: a 16:9 y ancho
+  // completo ocupaba media pantalla y empujaba el texto fuera de la vista.
+  cabecera: 'aspect-video sm:aspect-[5/2]',
+  miniatura: 'aspect-[4/3]',
+};
+
+// Proporciones del marco de cada variante en todos sus tamanos (la cabecera
+// pasa de 16:9 en movil a panoramica desde tablet).
+const proporcionesMarcoPorVariante = {
+  tarjeta: [16 / 9],
+  destacada: [16 / 9],
+  cabecera: [16 / 9, 5 / 2],
+  miniatura: [4 / 3],
+};
+// Hasta un 8 % de diferencia la foto cubre el marco: el recorte no se nota y
+// una banda de relleno tan fina solo dejaba una raya con los detalles del borde.
+const DIFERENCIA_MAXIMA_PARA_CUBRIR = 0.08;
+
+const proporcionImagen = foto.ancho / foto.alto;
+const proporcionesMarco = proporcionesMarcoPorVariante[variante];
+const cubreElMarco = proporcionesMarco.every(
+  (proporcionMarco) => Math.abs(proporcionImagen - proporcionMarco) / proporcionMarco <= DIFERENCIA_MAXIMA_PARA_CUBRIR,
+);
+
+// Si no, cada imagen de prensa llega con una forma distinta y recortarla al
+// marco cortaba el producto (la placa de MSI, el monitor). Va entera, y el hueco
+// que sobra toma el degradado de los bordes de la propia imagen, asi no se nota
+// el marco: una imagen mas estrecha que el marco deja bandas a los lados y se
+// rellena de arriba abajo; una mas ancha, al reves.
+const dejaBandasLaterales = proporcionImagen < proporcionesMarco.at(-1)!;
+const relleno = cubreElMarco ? null : await obtenerRellenoBordeImagen(foto.url);
+// Cada mitad del marco toma el degradado del borde de la imagen que le queda al lado.
+// El id tiene que ser unico en la pagina: la misma foto sale en la portada y en su bloque.
+const sufijoId = Math.random().toString(36).slice(2, 10);
+const mitadesRelleno = relleno
+  ? (dejaBandasLaterales ? [relleno.izquierda, relleno.derecha] : [relleno.arriba, relleno.abajo]).map(
+      (paradas, posicionMitad) => ({ id: `relleno-${sufijoId}-${posicionMitad}`, paradas, desplazamiento: `${posicionMitad * 50}%` }),
+    )
+  : [];
+---
+
+<!-- En modo oscuro atenuo la foto: las de prensa sobre fondo blanco deslumbraban junto al azul noche. -->
+<div
+  class:list={['relative isolate w-full overflow-hidden dark:brightness-[0.88]', proporcionPorVariante[variante]]}
+>
+  <!--
+    Relleno con el atributo fill de SVG y no con un style inline: la CSP
+    (style-src 'self') bloquea los atributos style.
+  -->
+  {!cubreElMarco && (
+    <svg aria-hidden="true" class="absolute inset-0 h-full w-full" preserveAspectRatio="none">
+      <defs>
+        {mitadesRelleno.map((mitad) => (
+          <linearGradient id={mitad.id} x1="0" y1="0" x2={dejaBandasLaterales ? '0' : '1'} y2={dejaBandasLaterales ? '1' : '0'}>
+            {mitad.paradas.map((color, posicionParada) => (
+              <stop offset={(posicionParada + 0.5) / mitad.paradas.length} stop-color={color} />
+            ))}
+          </linearGradient>
+        ))}
+      </defs>
+      {mitadesRelleno.map((mitad) =>
+        dejaBandasLaterales ? (
+          <rect x={mitad.desplazamiento} width="50%" height="100%" fill={`url(#${mitad.id})`} />
+        ) : (
+          <rect y={mitad.desplazamiento} width="100%" height="50%" fill={`url(#${mitad.id})`} />
+        ),
+      )}
+    </svg>
+  )}
+  <Image
+    src={foto.url}
+    width={foto.ancho}
+    height={foto.alto}
+    widths={variante === 'miniatura' ? [160, 320] : [480, 800, 1200]}
+    sizes={tamanosPorVariante[variante]}
+    alt={alt}
+    loading={esPrioritaria ? 'eager' : 'lazy'}
+    fetchpriority={esPrioritaria ? 'high' : 'auto'}
+    class:list={[
+      'relative h-full w-full motion-safe:transition-[scale] motion-safe:duration-500 motion-safe:group-hover:scale-[1.03]',
+      cubreElMarco ? 'object-cover' : 'object-contain',
+    ]}
+  />
+</div>

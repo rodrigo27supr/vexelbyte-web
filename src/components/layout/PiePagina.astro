@@ -1,0 +1,86 @@
+---
+import { CATEGORIAS } from '../../lib/categorias';
+
+const anioActual = new Date().getFullYear();
+
+// Enlaces legales en un solo sitio: si se anade una pagina legal nueva, se
+// anade aqui y el footer la lista sin tocar el marcado.
+const enlacesLegales = [
+  { texto: 'Aviso Legal', ruta: '/aviso-legal' },
+  { texto: 'Política de Privacidad', ruta: '/politica-privacidad' },
+  { texto: 'Política de Cookies', ruta: '/politica-cookies' },
+  { texto: 'Términos y Condiciones', ruta: '/terminos-y-condiciones' },
+];
+
+const enlacesSecciones = [
+  { texto: 'Todas las noticias', ruta: '/noticias/' },
+  ...CATEGORIAS.map((categoria) => ({ texto: categoria.etiqueta, ruta: `/categoria/${categoria.rutaSlug}/` })),
+];
+
+// transition-[color] y no transition-colors: este ultimo tambien anima
+// outline-color, y el anillo de foco aparecia gris y se fundia al color de acento en
+// 150ms. Un indicador de foco tiene que verse ya con su color final.
+const claseEnlace =
+  'inline-block py-1 text-texto-secundario underline-offset-4 transition-[color] hover:text-acento-texto hover:underline';
+---
+
+<!--
+  Mismo tema que el resto de la pagina, en el azul realzado del sistema: un
+  pie de otro color parecia un bloque pegado de otra web.
+-->
+<footer class="mt-16 bg-fondo-realzado text-sm">
+  <div class="mx-auto grid max-w-portal gap-10 px-6 py-14 sm:grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr]">
+    <div>
+      <a href="/" class="inline-flex items-center gap-2 rounded-md font-titulo text-xl font-bold text-texto-primario no-underline">
+        <svg viewBox="0 0 64 64" width="28" height="28" aria-hidden="true">
+          <rect width="64" height="64" rx="14" class="fill-superficie"></rect>
+          <path d="M14 16 L32 50 L50 16" fill="none" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" class="stroke-acento"></path>
+          <rect x="44" y="40" width="8" height="8" rx="2" class="fill-acento-secundario"></rect>
+        </svg>
+        VexelByte
+      </a>
+      <p class="mt-4 max-w-sm text-texto-secundario">
+        Hardware de PC, dispositivos móviles y rendimiento en juegos. Proyecto personal e informativo, sin publicidad.
+      </p>
+      <address class="mt-5 not-italic text-texto-secundario">
+        Titular: Rodrigo Cuéllar Londoño
+        <br />
+        <a href="mailto:contacto@vexelbyte.com" class={claseEnlace}>contacto@vexelbyte.com</a>
+      </address>
+    </div>
+
+    <nav aria-label="Secciones">
+      <h2 class="text-sm font-semibold text-texto-primario">Secciones</h2>
+      <ul role="list" class="mt-3">
+        {
+          enlacesSecciones.map((enlace) => (
+            <li>
+              <a href={enlace.ruta} class={claseEnlace}>
+                {enlace.texto}
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </nav>
+
+    <nav aria-label="Enlaces legales">
+      <h2 class="text-sm font-semibold text-texto-primario">Legal</h2>
+      <ul role="list" class="mt-3">
+        {
+          enlacesLegales.map((enlace) => (
+            <li>
+              <a href={enlace.ruta} class={claseEnlace}>
+                {enlace.texto}
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </nav>
+  </div>
+
+  <div class="border-t border-borde-suave px-6 py-5 text-center text-xs text-texto-secundario">
+    <p>&copy; {anioActual} VexelByte. Todos los derechos reservados.</p>
+  </div>
+</footer>

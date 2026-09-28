@@ -1,0 +1,76 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  application:
+    name: vexelbyte-backend
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/vexelbyte}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+  jpa:
+    open-in-view: false
+    hibernate:
+      # El esquema lo gobierna Flyway, no Hibernate — en produccion nunca se
+      # autogenera ni se altera la base desde el mapeo de entidades.
+      ddl-auto: validate
+  flyway:
+    enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+vexelbyte:
+  feed-hardware:
+    # Fuentes RSS 2.0 publicas, separadas por comas: TechPowerUp para hardware
+    # de PC y GSMArena para smartphones y tablets. Tom's Hardware quedo fuera
+    # porque a la IP de Render le devuelve una pagina HTML en vez del RSS. Un
+    # feed caido no afecta a los demas.
+    urls-feed: ${URLS_FEEDS_NOTICIAS:https://www.techpowerup.com/rss/news,https://www.gsmarena.com/rss-news-reviews.php3}
+    # Tope de generaciones con IA por ciclo de 6 h: el plan gratuito de Gemini
+    # limita a pocas peticiones por minuto y los feeds traen decenas de items.
+    cantidad-maxima-por-ciclo: ${CANTIDAD_MAXIMA_NOTICIAS_POR_CICLO:5}
+  busqueda:
+    tavily:
+      # Opcional: sin clave, los analisis de GSMArena se descartan en vez de
+      # resumirse. Plan gratuito de 1.000 creditos al mes, sin tarjeta.
+      api-key: ${TAVILY_API_KEY:}
+      url-base: https://api.tavily.com
+  imagenes:
+    pexels:
+      # Opcional: fotos ilustrativas para los articulos sin material oficial.
+      # Plan gratuito: 200 busquedas por hora y 20.000 al mes.
+      api-key: ${PEXELS_API_KEY:}
+      url-base: https://api.pexels.com
+  ia:
+    # Cadena de proveedores en este orden (ver ConfiguracionProveedoresIA). Un
+    # proveedor sin clave no entra; si uno agota su cuota o falla, la noticia
+    # pasa al siguiente.
+    gemini:
+      api-key: ${GEMINI_API_KEY:}
+      # Cada modelo tiene su propia cuota diaria en el plan gratuito, asi que
+      # varios modelos con la misma clave multiplican la capacidad. Los nombres
+      # los renueva Google con frecuencia: se cambian aqui sin tocar codigo.
+      modelos: ${GEMINI_MODELOS:gemini-3.6-flash,gemini-3.5-flash-lite,gemini-3.1-flash-lite}
+      url-base: https://generativelanguage.googleapis.com
+      llamadas-por-minuto: 5
+    groq:
+      api-key: ${GROQ_API_KEY:}
+      modelo: ${GROQ_MODEL:openai/gpt-oss-120b}
+      url-base: https://api.groq.com/openai/v1
+      llamadas-por-minuto: 20
+    openrouter:
+      api-key: ${OPENROUTER_API_KEY:}
+      modelo: ${OPENROUTER_MODEL:qwen/qwen3.8-27b:free}
+      url-base: https://openrouter.ai/api/v1
+      llamadas-por-minuto: 10
+    anthropic:
+      # De pago: solo entra, y la ultima, si se define la clave.
+      api-key: ${ANTHROPIC_API_KEY:}
+      modelo: ${ANTHROPIC_MODEL:claude-sonnet-5}
+      url-base: https://api.anthropic.com
+      version: 2023-06-01
+      llamadas-por-minuto: 5

@@ -1,0 +1,60 @@
+---
+interface Props {
+  variante?: 'primario' | 'secundario';
+  href?: string;
+}
+
+const { variante = 'primario', href } = Astro.props;
+const EtiquetaHtml = href ? 'a' : 'button';
+
+---
+
+<EtiquetaHtml class={`boton boton--${variante}`} href={href}>
+  <slot />
+</EtiquetaHtml>
+
+<style>
+  .boton {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding-inline: var(--espaciado-6);
+    /* Pildora: en la escala de esquinas del sitio es la forma de lo que se pulsa. */
+    border-radius: 9999px;
+    font-family: var(--font-cuerpo);
+    font-size: var(--tamano-cuerpo);
+    font-weight: 600;
+    text-decoration: none;
+    border: 1px solid transparent;
+    cursor: pointer;
+    /* Sin outline en la lista: el anillo de foco tiene que aparecer ya con su color final. */
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  }
+
+  .boton:active {
+    translate: 0 1px;
+  }
+
+  .boton--primario {
+    /* Blanco sobre el relleno de accion: 7.6:1 en claro y 5.1:1 en oscuro, ver tokens.css. */
+    background-color: var(--color-acento);
+    color: var(--color-acento-contraste);
+  }
+
+  /* Blanco encima: 13:1 en claro y 6.3:1 en oscuro. */
+  .boton--primario:hover {
+    background-color: var(--color-acento-hover);
+  }
+
+  .boton--secundario {
+    background-color: transparent;
+    color: var(--color-texto-primario);
+    border-color: var(--color-borde);
+  }
+
+  .boton--secundario:hover {
+    border-color: var(--color-acento-texto);
+    color: var(--color-acento-texto);
+  }
+</style>

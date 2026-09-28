@@ -1,0 +1,32 @@
+---
+interface Props {
+  // Un formulario puede necesitar dos consentimientos distintos (privacidad,
+  // comunicaciones comerciales) con ids distintos en la misma pagina.
+  id?: string;
+  nombre?: string;
+}
+
+const { id = 'consentimiento-privacidad', nombre = 'consentimiento_privacidad' } = Astro.props;
+---
+
+<!--
+  Esqueleto de consentimiento para futuros formularios (contacto, boletin).
+  Por RGPD la casilla nunca llega premarcada y es obligatoria: el consentimiento
+  tiene que ser una accion afirmativa explicita, no un valor por defecto. La
+  casilla mide 24px (SC 2.5.8) y el texto es un <label> asociado, asi que todo el
+  bloque es clicable. Todavia no lo usa ninguna pagina -- no hay formularios.
+-->
+<div class="flex items-start gap-3">
+  <input
+    type="checkbox"
+    id={id}
+    name={nombre}
+    required
+    class="mt-0.5 h-6 w-6 shrink-0 cursor-pointer accent-acento"
+  />
+  <label for={id} class="cursor-pointer text-sm text-texto-secundario">
+    He leído y acepto la
+    <a href="/politica-privacidad" class="text-acento-texto underline underline-offset-4">Política de Privacidad</a>
+    y consiento el tratamiento de mis datos para gestionar esta solicitud.
+  </label>
+</div>

@@ -1,0 +1,112 @@
+---
+import { getImage } from 'astro:assets';
+import LayoutArticulo from '../../layouts/LayoutArticulo.astro';
+import { obtenerArticulosPublicados, obtenerArticuloPorSlug } from '../../lib/api-articulos';
+import { obtenerEtiquetaCategoria } from '../../lib/categorias';
+import { construirIndiceArticulo } from '../../lib/indice-articulo';
+
+// getStaticPaths corre en build-time (el sitio es 100% estatico, sin SSR
+// dinamico) -- genero una pagina HTML por cada noticia que ya esta
+// publicada en el backend en el momento del build. Un articulo nuevo no
+// aparece hasta el siguiente build/deploy: es el compromiso normal de un
+// sitio estatico frente a SSR, y es precisamente lo que nos da el
+// rendimiento (LCP, TTFB) que buscamos -- nada de esperar a una consulta a
+// base de datos en cada visita.
+export async function getStaticPaths() {
+  const articulos = await obtenerArticulosPublicados();
+
+  return articulos.map((articulo) => ({
+    params: { slug: articulo.slug },
+  }));
+}
+
+const { slug } = Astro.params;
+const articulo = await obtenerArticuloPorSlug(slug!);
+
+if (!articulo) {
+  // getStaticPaths ya confirmo que este slug existe momentos antes -- si
+  // esta segunda llamada no lo encuentra, es una inconsistencia real (por
+  // ejemplo, el backend lo des-publico a mitad del build) y prefiero que el
+  // build falle de forma ruidosa a generar una pagina de articulo vacia.
+  throw new Error(`No pude obtener el detalle del articulo con slug "${slug}" durante el build`);
+}
+
+const urlCanonica = new URL(Astro.url.pathname, Astro.site).toString();
+
+// Con foto del producto, esa es la imagen al compartir y la de Google. La
+// genero en JPEG y no en WebP porque algunas redes aun no leen WebP en og:image.
+const ANCHO_IMAGEN_COMPARTIR = 1200;
+const imagenCompartir = articulo.foto
+  ? await getImage({
+      src: articulo.foto.url,
+      width: ANCHO_IMAGEN_COMPARTIR,
+      height: Math.round((ANCHO_IMAGEN_COMPARTIR * articulo.foto.alto) / articulo.foto.ancho),
+      format: 'jpg',
+    })
+  : null;
+const urlImagenPrincipal = new URL(imagenCompartir?.src ?? '/og-vexelbyte.png', Astro.site).toString();
+
+// 200 palabras por minuto, la referencia habitual para lectura en pantalla.
+const PALABRAS_POR_MINUTO = 200;
+const palabrasCuerpo = articulo.cuerpoHtml.replace(/<[^>]+>/g, ' ').split(/\s+/).filter(Boolean).length;
+const minutosLectura = Math.max(1, Math.round(palabrasCuerpo / PALABRAS_POR_MINUTO));
+
+const { cuerpoConAnclas, apartados } = construirIndiceArticulo(articulo.cuerpoHtml);
+
+// Relacionadas: primero las de la misma categoria y, si no llegan a seis,
+// completo con las mas recientes para que el bloque nunca quede a medias.
+// Seis en un carrusel: tres a la vista en escritorio y el resto a un gesto.
+const RELACIONADAS_POR_ARTICULO = 6;
+const otrasNoticias = (await obtenerArticulosPublicados()).filter((otra) => otra.slug !== articulo.slug);
+const mismaCategoria = articulo.categoria ? otrasNoticias.filter((otra) => otra.categoria === articulo.categoria) : [];
+const relacionadas = [...mismaCategoria, ...otrasNoticias.filter((otra) => !mismaCategoria.includes(otra))].slice(
+  0,
+  RELACIONADAS_POR_ARTICULO,
+);
+
+// NewsArticle es el tipo de Schema Markup que le corresponde a contenido
+// periodistico. Incluyo publisher con logo (el estandar lo pide
+// explicitamente para NewsArticle); el favicon es el unico logo de la marca.
+// dateModified solo aparece si el articulo tuvo una actualizacion real.
+const esquemaJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'NewsArticle',
+  headline: articulo.titulo,
+  articleSection: obtenerEtiquetaCategoria(articulo.categoria),
+  description: articulo.descripcion,
+  url: urlCanonica,
+  mainEntityOfPage: { '@type': 'WebPage', '@id': urlCanonica },
+  datePublished: articulo.fechaPublicacion,
+  ...(articulo.fechaActualizacion ? { dateModified: articulo.fechaActualizacion } : {}),
+  author: { '@type': 'Organization', name: articulo.autor },
+  publisher: {
+    '@type': 'Organization',
+    name: 'VexelByte',
+    logo: { '@type': 'ImageObject', url: new URL('/favicon.svg', Astro.site).toString() },
+  },
+  // Imagen obligatoria para los resultados enriquecidos de Google: la foto del
+  // producto o, sin ella, la tarjeta de marca, la misma que sale al compartir.
+  image: urlImagenPrincipal,
+};
+---
+
+<LayoutArticulo
+  titulo={articulo.titulo}
+  descripcion={articulo.descripcion}
+  autor={articulo.autor}
+  fechaPublicacion={new Date(articulo.fechaPublicacion)}
+  esquemaJsonLd={esquemaJsonLd}
+  semillaPortada={articulo.slug}
+  categoria={articulo.categoria}
+  producto={articulo.producto}
+  especificaciones={articulo.especificaciones}
+  datosClave={articulo.datosClave}
+  puntosClave={articulo.puntosClave}
+  minutosLectura={minutosLectura}
+  relacionadas={relacionadas}
+  apartados={apartados}
+  foto={articulo.foto}
+  imagenOg={imagenCompartir ? urlImagenPrincipal : undefined}
+>
+  <Fragment set:html={cuerpoConAnclas} />
+</LayoutArticulo>

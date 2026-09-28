@@ -1,0 +1,193 @@
+/*
+  Sistema de diseno de VexelByte -- identidad visual del medio.
+
+  Concepto (decision del Tech Lead, 2026-09-27): editorial sobrio en blanco y
+  azul. La paleta anterior (obsidiana con verde neon y naranja) se leia como la
+  tipica web de gaming generada por IA. Pagina blanca, texto en azul marino
+  casi negro y dos azules propios con roles separados: cobalto (#1846c9) para
+  todo lo accionable (enlaces, botones, foco) y azul tinta (#142c6e) para las
+  etiquetas de categoria. Los azules de serie de Tailwind (#1d4ed8, #1e3a8a)
+  hacian la web intercambiable con cualquier plantilla. Nada de gradientes ni
+  neones: la jerarquia la hacen el espacio, la tipografia y las fotos.
+
+  Claro u oscuro segun el sistema del lector (decision del Tech Lead,
+  2026-09-27): la variante oscura redefine los mismos tokens al final de este
+  archivo, asi que ningun componente necesita clases dark: propias.
+
+  Los colores y las familias tipograficas viven dentro de @theme para que
+  Tailwind genere utilidades reales (bg-fondo, text-acento, font-titulo...)
+  ademas de quedar disponibles como variables CSS planas para mis
+  componentes Astro con <style> propio -- una sola fuente de verdad.
+*/
+@import 'tailwindcss';
+
+/* @tailwindcss/typography estiliza el HTML crudo que nos devuelve la IA
+   (headings, parrafos, listas) sin que yo tenga que escribir selectores
+   :global(h2) a mano en LayoutArticulo -- ver el bloque .prosa-articulo mas
+   abajo, donde le paso mi propia paleta en vez de la gris por defecto. */
+@plugin '@tailwindcss/typography';
+
+@theme {
+  --font-titulo: 'Space Grotesk', 'Inter', system-ui, sans-serif;
+  --font-cuerpo: 'Inter', system-ui, sans-serif;
+
+  /* Blanco de verdad: el gris azulado anterior (#f5f7fa) se leia como gris y
+     el Tech Lead pidio una web blanca con azul. */
+  --color-fondo: #ffffff;
+  --color-superficie: #ffffff;
+  /* Contrastes calculados con la formula WCAG, no a ojo. El borde es el
+     limite visible de los controles, asi que necesita 3:1 (SC 1.4.11):
+     #7c8799 da 3.63:1 sobre blanco y 3.24:1 sobre el azul hielo; el gris claro
+     habitual de las webs blancas (#e2e8f0) se queda en 1.2:1. */
+  --color-borde: #7c8799;
+  /* Texto primario 17.9:1 sobre blanco y 15.9:1 sobre azul hielo; secundario
+     7.6:1 y 6.8:1. */
+  --color-texto-primario: #0f172a;
+  --color-texto-secundario: #475569;
+
+  /* Acento de accion (cobalto): 7.6:1 sobre blanco y 6.8:1 sobre azul hielo
+     como texto, y el blanco sobre su relleno da 7.6:1, asi que el mismo tono
+     sirve para enlaces, foco y botones. */
+  --color-acento: #1846c9;
+  --color-acento-contraste: #ffffff;
+  --color-acento-texto: #1846c9;
+
+  /* Acento de etiqueta (azul tinta): categorias, siempre como texto, y fondo
+     de los botones al pasar por encima. 13:1 sobre blanco y 11.6:1 sobre azul
+     hielo; lo bastante distinto del cobalto para que una etiqueta no parezca
+     un enlace. */
+  --color-acento-secundario: #142c6e;
+
+  /* Relleno de un boton al pasar por encima: el azul tinta en claro. Es un
+     token aparte porque en oscuro la etiqueta es un azul palido y el relleno
+     tiene que seguir llevando texto blanco. */
+  --color-acento-hover: #142c6e;
+
+  /* Ancho maximo del contenido: con 1.152 px, en un monitor de 1920 quedaban
+     casi 400 px vacios a cada lado. */
+  --container-portal: 84rem;
+
+  /* Filete decorativo alrededor de fotos y entre noticias de una lista. No es
+     el limite que identifica un control (una noticia se reconoce por su
+     titular enlazado y su foco visible), asi que no necesita el 3:1 de la
+     SC 1.4.11: los controles de verdad (botones, filtros) siguen con
+     --color-borde. Con el borde de 3:1 cada foto parecia enmarcada. */
+  --color-borde-suave: #e2e8f0;
+
+  /* Azul hielo para bloques destacados (puntos clave, pie, llamada al
+     archivo, filas alternas). Los contrastes sobre el van con cada color. */
+  --color-fondo-realzado: #edf2fe;
+
+  /* Seleccion de texto en azul claro: el texto primario encima da 12.4:1. */
+  --color-seleccion: #c7d7fe;
+}
+
+/* Escala de esquinas, una sola regla para todo el sitio: 8px en miniaturas,
+   12px en fotos de tarjeta, 16px en aperturas y bloques, y pildora completa
+   solo en lo que se pulsa (botones y filtros de categoria). */
+:root {
+  color-scheme: light dark;
+
+  /* Escala de espaciado, base 8px -- deliberadamente fuera de @theme:
+     Tailwind ya trae su propia escala numerica (p-4, gap-6...) para
+     maquetacion nueva. Esta es solo para mis componentes existentes con
+     <style> propio, no quiero que una colisione con la otra. */
+  --espaciado-1: 0.25rem;
+  --espaciado-2: 0.5rem;
+  --espaciado-3: 0.75rem;
+  --espaciado-4: 1rem;
+  --espaciado-6: 1.5rem;
+  --espaciado-8: 2rem;
+  --espaciado-12: 3rem;
+  --espaciado-16: 4rem;
+
+  --tamano-display: clamp(2rem, 4vw, 3rem);
+  --tamano-titulo: clamp(1.5rem, 2.5vw, 2rem);
+  --tamano-cuerpo: 1rem;
+  --tamano-caption: 0.875rem;
+
+  --radio-borde: 0.5rem;
+
+  /* El foco usa el acento de accion como texto: 7.6:1 en claro y 8.9:1 en
+     oscuro, por encima del 3:1 que pide un indicador de foco (WCAG 2.4.13). */
+  --color-foco: var(--color-acento-texto);
+}
+
+/* Mapeo de las variables de @tailwindcss/typography a mi propia paleta, para
+   que el texto de un articulo (clase .prosa-articulo, junto con "prose") use
+   los mismos tokens que el resto del sitio en vez de los grises del plugin. */
+.prosa-articulo {
+  --tw-prose-body: var(--color-texto-primario);
+  --tw-prose-headings: var(--color-texto-primario);
+  --tw-prose-links: var(--color-acento-texto);
+  --tw-prose-bold: var(--color-texto-primario);
+  --tw-prose-bullets: var(--color-texto-secundario);
+  --tw-prose-hr: var(--color-borde);
+  --tw-prose-quotes: var(--color-texto-secundario);
+  --tw-prose-quote-borders: var(--color-borde);
+  --tw-prose-captions: var(--color-texto-secundario);
+}
+
+/* El subrayado por defecto casi toca los descendentes (g, p, y) y ensucia la
+   lectura de los enlaces dentro del cuerpo del articulo. */
+.prosa-articulo a {
+  text-underline-offset: 0.2em;
+  text-decoration-thickness: 1px;
+}
+
+/* El saneador del backend admite citas y tablas (comparativas, benchmarks).
+   La cita va como bloque azul palido y no con la barra lateral de color del
+   plugin, y la tabla con cabecera tintada y cifras alineadas para comparar. */
+.prosa-articulo {
+  --tw-prose-bullets: var(--color-acento);
+  --tw-prose-counters: var(--color-acento-secundario);
+  --tw-prose-th-borders: var(--color-borde-suave);
+  --tw-prose-td-borders: var(--color-borde-suave);
+}
+
+.prosa-articulo blockquote {
+  border-inline-start: none;
+  border-radius: 1rem;
+  background-color: var(--color-fondo-realzado);
+  padding: 1.25em 1.5em;
+  font-style: normal;
+  font-weight: 500;
+}
+
+.prosa-articulo blockquote p:first-of-type::before,
+.prosa-articulo blockquote p:last-of-type::after {
+  content: none;
+}
+
+.prosa-articulo thead th {
+  background-color: var(--color-fondo-realzado);
+  padding-inline: 0.75em;
+}
+
+.prosa-articulo tbody td {
+  font-variant-numeric: tabular-nums;
+  padding-inline: 0.75em;
+}
+
+/* Variante oscura: azul noche en vez de negro, con los mismos roles. Contrastes
+   calculados sobre fondo, superficie y azul realzado (en ese orden): texto
+   16.0/14.7/13.5, secundario 8.5/7.9/7.2, enlaces 8.9/8.2/7.5, etiquetas
+   12.6/11.6/10.6, borde 3.8/3.5/3.2. En oscuro el cobalto de texto no sirve de
+   relleno (el blanco encima no llega a 4.5:1), asi que el boton lleva su
+   propio azul: blanco encima 5.1:1, y 6.3:1 al pasar por encima. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-fondo: #0b1120;
+    --color-superficie: #111a2e;
+    --color-fondo-realzado: #16223b;
+    --color-borde: #63718c;
+    --color-borde-suave: #26324b;
+    --color-texto-primario: #e7edf7;
+    --color-texto-secundario: #9fb0c8;
+    --color-acento: #3563e9;
+    --color-acento-texto: #8cb2ff;
+    --color-acento-secundario: #c2d3fa;
+    --color-acento-hover: #2c55d4;
+    --color-seleccion: #2b4580;
+  }
+}

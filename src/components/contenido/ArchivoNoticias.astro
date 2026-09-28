@@ -1,0 +1,92 @@
+---
+import TarjetaNoticia from './TarjetaNoticia.astro';
+import type { ArticuloResumen } from '../../lib/api-articulos';
+import { construirRutaPaginaArchivo } from '../../lib/archivo-noticias';
+
+// Una pagina del archivo de noticias (general o de una seccion) con su
+// navegacion entre paginas. Todo se genera en el build: cada pagina es un
+// HTML estatico propio.
+interface Props {
+  noticias: ArticuloResumen[];
+  paginaActual: number;
+  totalPaginas: number;
+  rutaBase: string;
+  mostrarCategoria?: boolean;
+}
+
+const { noticias, paginaActual, totalPaginas, rutaBase, mostrarCategoria = true } = Astro.props;
+// Con diez anos de archivo habra cientos de paginas: muestro la primera, la
+// ultima y las vecinas de la actual, y un hueco donde se saltan numeros.
+const PAGINAS_VECINAS = 1;
+const numerosPagina = Array.from({ length: totalPaginas }, (_paginaVacia, posicion) => posicion + 1).filter(
+  (numeroPagina) =>
+    numeroPagina === 1 || numeroPagina === totalPaginas || Math.abs(numeroPagina - paginaActual) <= PAGINAS_VECINAS,
+);
+const claseControlPagina =
+  'inline-flex min-h-11 min-w-11 items-center justify-center rounded-full px-4 text-sm font-semibold no-underline transition-[background-color,color] duration-200';
+---
+
+{
+  noticias.length === 0 ? (
+    <p class="rounded-2xl bg-fondo-realzado p-6 text-texto-secundario">Todavía no hay noticias publicadas. Vuelve pronto.</p>
+  ) : (
+    <>
+      {/* role="list" explicito: con list-style none, Safari/VoiceOver descarta la semantica de lista. */}
+      <ul role="list" aria-label="Noticias publicadas" class="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {noticias.map((articulo) => (
+          <li>
+            <TarjetaNoticia articulo={articulo} mostrarCategoria={mostrarCategoria} />
+          </li>
+        ))}
+      </ul>
+
+      {totalPaginas > 1 && (
+        <nav aria-label="Páginas del archivo" class="mt-14 flex flex-wrap items-center justify-center gap-2">
+          {paginaActual > 1 && (
+            <a
+              href={construirRutaPaginaArchivo(rutaBase, paginaActual - 1)}
+              rel="prev"
+              class:list={[claseControlPagina, 'text-acento-texto hover:bg-fondo-realzado']}
+            >
+              Más recientes
+            </a>
+          )}
+          <ol role="list" class="flex flex-wrap gap-1">
+            {numerosPagina.map((numeroPagina, posicionEnLista) => (
+              <li class="flex items-center gap-1">
+                {posicionEnLista > 0 && numeroPagina - numerosPagina[posicionEnLista - 1] > 1 && (
+                  <span aria-hidden="true" class="px-1 text-texto-secundario">
+                    &hellip;
+                  </span>
+                )}
+                <a
+                  href={construirRutaPaginaArchivo(rutaBase, numeroPagina)}
+                  aria-current={numeroPagina === paginaActual ? 'page' : undefined}
+                  aria-label={`Página ${numeroPagina}`}
+                  class:list={[
+                    claseControlPagina,
+                    'tabular-nums',
+                    numeroPagina === paginaActual
+                      ? 'bg-acento text-acento-contraste'
+                      : 'text-texto-primario hover:bg-fondo-realzado hover:text-acento-texto',
+                  ]}
+                >
+                  {numeroPagina}
+                </a>
+              </li>
+            ))}
+          </ol>
+          {paginaActual < totalPaginas && (
+            <a
+              href={construirRutaPaginaArchivo(rutaBase, paginaActual + 1)}
+              rel="next"
+              class:list={[claseControlPagina, 'text-acento-texto hover:bg-fondo-realzado']}
+            >
+              Anteriores
+            </a>
+          )}
+        </nav>
+      )}
+    </>
+  )
+}

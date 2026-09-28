@@ -1,0 +1,45 @@
+---
+import type { DefinicionCategoria } from '../../lib/categorias';
+
+// Banda de cabecera de una seccion, en su primera pagina y en las siguientes
+// del archivo. El numero de noticias da idea del volumen antes de empezar a bajar.
+interface Props {
+  categoria: DefinicionCategoria;
+  totalNoticias: number;
+  numeroPagina?: number;
+}
+
+const { categoria, totalNoticias, numeroPagina = 1 } = Astro.props;
+const esPrimeraPagina = numeroPagina === 1;
+const rutaCategoria = `/categoria/${categoria.rutaSlug}/`;
+---
+
+<div class="bg-fondo-realzado">
+  <div class="mx-auto max-w-portal px-4 py-10 sm:px-6 sm:py-14">
+    <nav aria-label="Migas de pan" class="text-sm text-texto-secundario">
+      <a href="/" class="underline-offset-4 hover:text-acento-texto hover:underline">Inicio</a>
+      <span aria-hidden="true" class="mx-2">/</span>
+      {
+        esPrimeraPagina ? (
+          <span aria-current="page">{categoria.etiqueta}</span>
+        ) : (
+          <a href={rutaCategoria} class="underline-offset-4 hover:text-acento-texto hover:underline">
+            {categoria.etiqueta}
+          </a>
+        )
+      }
+    </nav>
+    <h1 class="mt-4 text-4xl sm:text-5xl">
+      {categoria.etiqueta}
+      {!esPrimeraPagina && <span class="text-texto-secundario">, página {numeroPagina}</span>}
+    </h1>
+    <p class="mt-4 max-w-prose text-pretty text-texto-secundario sm:text-lg">{categoria.descripcion}</p>
+    {
+      totalNoticias > 0 && (
+        <p class="mt-4 text-sm font-semibold tabular-nums text-acento-secundario">
+          {totalNoticias} {totalNoticias === 1 ? 'noticia publicada' : 'noticias publicadas'}
+        </p>
+      )
+    }
+  </div>
+</div>

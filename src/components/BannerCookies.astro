@@ -1,0 +1,135 @@
+---
+import Boton from './ui/Boton.astro';
+
+interface Props {
+  idMedicionGa4: string;
+}
+
+const { idMedicionGa4 } = Astro.props;
+---
+
+<!--
+  hidden por defecto: decido si se muestra en el propio script segun lo que
+  ya haya en localStorage, no aqui -- asi nunca hay un parpadeo donde el
+  banner aparece y desaparece de golpe en el primer render.
+-->
+<div
+  id="banner-cookies"
+  role="region"
+  aria-label="Aviso de cookies"
+  class="fixed inset-x-0 bottom-0 z-50 border-t border-borde bg-superficie px-6 py-4 shadow-lg"
+  data-id-medicion-ga4={idMedicionGa4}
+  hidden
+>
+  <div class="mx-auto flex max-w-portal flex-col items-center gap-4 sm:flex-row sm:justify-between">
+    <p class="text-sm text-texto-secundario">
+      Usamos cookies analíticas para entender cómo se usa VexelByte. Puedes aceptarlas o rechazarlas cuando quieras.
+      Consulta nuestra <a href="/politica-cookies" class="text-acento-texto underline underline-offset-4">política de cookies</a>{' '}
+      para más detalle.
+    </p>
+    <div class="flex shrink-0 gap-3">
+      <Boton variante="secundario">Rechazar</Boton>
+      <Boton variante="primario">Aceptar</Boton>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Consentimiento antes de carga, no despues: GA4 solo se inyecta si hay un
+  // "granted" guardado (de una visita anterior) o en el momento exacto en que
+  // la persona pulsa Aceptar -- nunca antes, que es justo lo que el RGPD
+  // exige y lo que distingue un banner real de un mero aviso decorativo.
+  const CLAVE_CONSENTIMIENTO = 'vexelbyte_consent';
+
+  // El ID viaja en un data-attribute y no con define:vars porque define:vars
+  // convierte el script en inline, y la CSP de vercel.json no lo permite.
+  function inyectarGa4(idMedicion: string): void {
+    if (document.querySelector('script[data-ga4-cargado="true"]')) {
+      return;
+    }
+
+    const etiquetaCargaGtag = document.createElement('script');
+    etiquetaCargaGtag.async = true;
+    etiquetaCargaGtag.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(idMedicion)}`;
+    etiquetaCargaGtag.dataset.ga4Cargado = 'true';
+    document.head.appendChild(etiquetaCargaGtag);
+
+    // Inicializo gtag desde este modulo y no con un <script> inline creado al
+    // vuelo: la CSP de vercel.json no permite scripts inline. gtag exige que
+    // se empuje el objeto arguments tal cual, por eso no uso parametros rest.
+    const ventanaConGtag = window as Window & { dataLayer?: unknown[]; gtag?: (...argumentos: unknown[]) => void };
+    ventanaConGtag.dataLayer = ventanaConGtag.dataLayer || [];
+    ventanaConGtag.gtag = function registrarEventoGtag() {
+      ventanaConGtag.dataLayer!.push(arguments);
+    };
+    ventanaConGtag.gtag('js', new Date());
+    ventanaConGtag.gtag('config', idMedicion);
+  }
+
+  function leerConsentimientoGuardado(): string | null {
+    // localStorage puede lanzar en navegacion privada estricta o con el
+    // almacenamiento bloqueado -- si eso pasa, prefiero mostrar el banner de
+    // nuevo (pedir consentimiento otra vez) a asumir en silencio que ya lo
+    // tengo, que seria el fallo peligroso para el cumplimiento RGPD.
+    try {
+      return localStorage.getItem(CLAVE_CONSENTIMIENTO);
+    } catch (errorAlmacenamiento) {
+      console.warn('No pude leer la preferencia de cookies guardada.', errorAlmacenamiento);
+      return null;
+    }
+  }
+
+  function guardarConsentimiento(valor: 'granted' | 'denied'): void {
+    try {
+      localStorage.setItem(CLAVE_CONSENTIMIENTO, valor);
+    } catch (errorAlmacenamiento) {
+      console.warn('No pude guardar la preferencia de cookies.', errorAlmacenamiento);
+    }
+  }
+
+  const bannerCookies = document.querySelector<HTMLDivElement>('#banner-cookies');
+  const botonAceptar = bannerCookies?.querySelector<HTMLButtonElement>('.boton--primario');
+  const botonRechazar = bannerCookies?.querySelector<HTMLButtonElement>('.boton--secundario');
+
+  const idMedicionGa4 = bannerCookies?.dataset.idMedicionGa4;
+
+  if (bannerCookies && botonAceptar && botonRechazar && idMedicionGa4) {
+    // Mientras el banner esta fijo abajo, reservo su altura como padding del
+    // body: sin esto tapa los enlaces del footer y quien navega con teclado
+    // enfoca un enlace que no ve (WCAG 2.2, SC 2.4.11 foco no oculto). El
+    // ResizeObserver mantiene la reserva correcta si el texto salta de linea.
+    const observadorAlturaBanner = new ResizeObserver(() => {
+      document.body.style.paddingBottom = `${bannerCookies.offsetHeight}px`;
+    });
+
+    function mostrarBanner(): void {
+      bannerCookies!.hidden = false;
+      observadorAlturaBanner.observe(bannerCookies!);
+    }
+
+    function ocultarBanner(): void {
+      observadorAlturaBanner.disconnect();
+      document.body.style.paddingBottom = '';
+      bannerCookies!.hidden = true;
+    }
+
+    const consentimientoGuardado = leerConsentimientoGuardado();
+
+    if (consentimientoGuardado === null) {
+      mostrarBanner();
+    } else if (consentimientoGuardado === 'granted') {
+      inyectarGa4(idMedicionGa4);
+    }
+
+    botonAceptar.addEventListener('click', () => {
+      guardarConsentimiento('granted');
+      ocultarBanner();
+      inyectarGa4(idMedicionGa4);
+    });
+
+    botonRechazar.addEventListener('click', () => {
+      guardarConsentimiento('denied');
+      ocultarBanner();
+    });
+  }
+</script>

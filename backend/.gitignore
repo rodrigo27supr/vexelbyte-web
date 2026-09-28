@@ -1,0 +1,15 @@
+target/
+*.class
+.mvn/wrapper/maven-wrapper.jar
+
+# Si este directorio llega a desplegarse alguna vez como repositorio Git
+# independiente (Render, etc.), este .gitignore es el unico que aplicaria --
+# el de la raiz de OVER-IA no protege nada fuera de su propio arbol. Sin esta
+# linea, un "git add ." aqui subiria las credenciales reales de Neon, Gemini,
+# Steam e IGDB en texto plano.
+.env
+.env.*
+!.env.example
+
+.idea/
+.vscode/

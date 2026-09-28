@@ -1,0 +1,198 @@
+---
+import { CATEGORIAS } from '../../lib/categorias';
+
+// Noticias y las cuatro lineas editoriales: cada categoria tiene su pagina
+// aunque este vacia, asi que el menu nunca enlaza a un 404.
+const enlacesMenu = [
+  { etiqueta: 'Noticias', ruta: '/noticias/' },
+  ...CATEGORIAS.map((categoria) => ({ etiqueta: categoria.etiqueta, ruta: `/categoria/${categoria.rutaSlug}/` })),
+];
+
+const rutaActual = Astro.url.pathname.endsWith('/') ? Astro.url.pathname : `${Astro.url.pathname}/`;
+const esPaginaBusqueda = rutaActual === '/buscar/';
+---
+
+<header>
+  <nav aria-label="Navegación principal">
+    <a class="enlace-logo" href="/">
+      <svg viewBox="0 0 64 64" width="28" height="28" aria-hidden="true" class="marca-logo">
+        <rect width="64" height="64" rx="14" class="marca-fondo"></rect>
+        <path d="M14 16 L32 50 L50 16" fill="none" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" class="marca-trazo"></path>
+        <rect x="44" y="40" width="8" height="8" rx="2" class="marca-punto"></rect>
+      </svg>
+      VexelByte
+    </a>
+    <!--
+      En movil el menu se desplaza en horizontal en vez de partirse en varias
+      lineas: cinco enlaces no caben en 375px y apilarlos empujaria el
+      contenido hacia abajo en cada pagina.
+    -->
+    <ul>
+      {
+        enlacesMenu.map((enlace) => (
+          <li>
+            <a href={enlace.ruta} aria-current={rutaActual === enlace.ruta ? 'page' : undefined}>
+              {enlace.etiqueta}
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+    <a class="enlace-buscar" href="/buscar/" aria-current={esPaginaBusqueda ? 'page' : undefined}>
+      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="7"></circle>
+        <path d="m20 20-3.5-3.5"></path>
+      </svg>
+      <span class="sr-only">Buscar</span>
+    </a>
+  </nav>
+</header>
+
+<style>
+  header {
+    padding-block: var(--espaciado-3);
+    background-color: var(--color-superficie);
+    border-bottom: 1px solid var(--color-borde-suave);
+    /* Nombre propio en la transicion entre paginas: la cabecera no se funde. */
+    view-transition-name: cabecera-sitio;
+  }
+
+
+  /* Fija solo desde tablet: en movil el menu ocupa dos lineas y, pegado arriba,
+     se comeria un cuarto de la pantalla de lectura. El scroll-padding de
+     global.css evita que tape el destino de un ancla o el elemento enfocado. */
+  @media (min-width: 768px) {
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 40;
+    }
+  }
+
+  /* En movil: logo y lupa en la primera fila, menu debajo a todo el ancho.
+     Desde tablet, las tres piezas en una sola linea. */
+  nav {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    grid-template-areas:
+      'logo . buscar'
+      'menu menu menu';
+    align-items: center;
+    gap: var(--espaciado-1) var(--espaciado-6);
+    max-width: var(--container-portal);
+    margin-inline: auto;
+    /* El margen lateral va dentro del ancho maximo, igual que en el contenido
+       (px-4, sm:px-6): asi el logo queda alineado con la columna de noticias. */
+    padding-inline: var(--espaciado-4);
+  }
+
+  @media (min-width: 640px) {
+    nav {
+      padding-inline: var(--espaciado-6);
+    }
+  }
+
+  @media (min-width: 768px) {
+    nav {
+      grid-template-columns: auto 1fr auto;
+      grid-template-areas: 'logo menu buscar';
+    }
+
+    nav ul {
+      justify-self: end;
+    }
+  }
+
+  .enlace-logo {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--espaciado-2);
+    font-family: var(--font-titulo);
+    font-size: 1.375rem;
+    font-weight: 700;
+    text-decoration: none;
+    color: var(--color-texto-primario);
+    grid-area: logo;
+  }
+
+  .enlace-buscar {
+    grid-area: buscar;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 9999px;
+    color: var(--color-texto-primario);
+    stroke: currentColor;
+    transition: background-color 0.15s ease, color 0.15s ease;
+  }
+
+  .enlace-buscar:hover,
+  .enlace-buscar[aria-current='page'] {
+    background-color: var(--color-fondo-realzado);
+    color: var(--color-acento-texto);
+  }
+
+  /* La marca sobre azul hielo, como el favicon: sobre la cabecera blanca un
+     cuadro blanco con contorno gris se veia como un boton vacio. */
+  .marca-fondo {
+    fill: var(--color-fondo-realzado);
+  }
+
+  .marca-trazo {
+    stroke: var(--color-acento-texto);
+  }
+
+  .marca-punto {
+    fill: var(--color-acento-secundario);
+  }
+
+  ul {
+    grid-area: menu;
+    display: flex;
+    gap: var(--espaciado-4);
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  /* En movil el ultimo enlace queda cortado: el difuminado del borde deja ver
+     que la fila sigue y se puede deslizar. Desde tablet cabe entera. */
+  @media (max-width: 767px) {
+    ul {
+      mask-image: linear-gradient(to right, black 82%, transparent);
+      padding-right: var(--espaciado-8);
+    }
+  }
+
+  /* Acoto a "nav ul a" (no "nav a" a secas) a proposito: el logo tambien es
+     un <a> dentro de <nav>, y con el escalado de Astro (que añade un
+     atributo data- a cada elemento del selector) "nav a" termina con MAS
+     especificidad que ".enlace-logo" y se lo come. Escribiendo "nav ul a"
+     el selector deja de coincidir con el logo -- no esta dentro del <ul> --
+     asi que no hay pelea de especificidad que resolver. */
+  nav ul a {
+    display: inline-block;
+    white-space: nowrap;
+    text-decoration: none;
+    padding: var(--espaciado-2) 0;
+    border-bottom: 2px solid transparent;
+    color: var(--color-texto-secundario);
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+
+  nav ul a:hover {
+    /* acento-texto, no acento crudo: es texto sobre el fondo de la pagina,
+       necesita el contraste correcto en los dos temas -- ver tokens.css. */
+    color: var(--color-acento-texto);
+  }
+
+  nav ul a[aria-current='page'] {
+    color: var(--color-texto-primario);
+    border-bottom-color: var(--color-acento-texto);
+  }
+</style>

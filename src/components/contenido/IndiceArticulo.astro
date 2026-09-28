@@ -1,0 +1,70 @@
+---
+import type { ApartadoIndice } from '../../lib/indice-articulo';
+
+// Indice "En este articulo" con enlaces a cada subtitulo. El titulo del bloque
+// no es un encabezado: el indice no es una seccion del articulo y no debe
+// aparecer en el esquema de encabezados que recorre un lector de pantalla.
+interface Props {
+  apartados: ApartadoIndice[];
+}
+
+const { apartados } = Astro.props;
+---
+
+<nav aria-label="En este artículo" class="rounded-2xl bg-superficie p-5 ring-1 ring-borde-suave">
+  <p class="font-titulo text-sm font-bold text-texto-primario">En este artículo</p>
+  <ol role="list" class="mt-3 flex flex-col gap-1 text-sm">
+    {
+      apartados.map((apartado) => (
+        <li>
+          <a
+            href={`#${apartado.id}`}
+            data-enlace-apartado={apartado.id}
+            class="block rounded-md py-1 text-texto-secundario underline-offset-4 transition-[color] hover:text-acento-texto hover:underline aria-[current=location]:font-semibold aria-[current=location]:text-acento-texto"
+          >
+            {apartado.titulo}
+          </a>
+        </li>
+      ))
+    }
+  </ol>
+</nav>
+
+<script>
+  // Marca en el indice el apartado que se esta leyendo: el ultimo subtitulo que
+  // ya ha pasado bajo la cabecera fija. Astro incluye este script una sola vez
+  // aunque el indice se pinte dos veces (movil y escritorio).
+  const MARGEN_CABECERA_PX = 120;
+  const subtitulos = [...document.querySelectorAll<HTMLElement>('.prosa-articulo h2[id^="apartado-"]')];
+  const enlacesApartado = [...document.querySelectorAll<HTMLAnchorElement>('[data-enlace-apartado]')];
+  let hayActualizacionPendiente = false;
+
+  function marcarApartadoEnLectura(): void {
+    hayActualizacionPendiente = false;
+    const subtitulosPasados = subtitulos.filter(
+      (subtitulo) => subtitulo.getBoundingClientRect().top <= MARGEN_CABECERA_PX,
+    );
+    const idEnLectura = subtitulosPasados.at(-1)?.id;
+    for (const enlace of enlacesApartado) {
+      if (enlace.dataset.enlaceApartado === idEnLectura) {
+        enlace.setAttribute('aria-current', 'location');
+      } else {
+        enlace.removeAttribute('aria-current');
+      }
+    }
+  }
+
+  if (subtitulos.length > 0) {
+    window.addEventListener(
+      'scroll',
+      () => {
+        if (!hayActualizacionPendiente) {
+          hayActualizacionPendiente = true;
+          requestAnimationFrame(marcarApartadoEnLectura);
+        }
+      },
+      { passive: true },
+    );
+    marcarApartadoEnLectura();
+  }
+</script>

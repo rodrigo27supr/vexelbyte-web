@@ -1,0 +1,14 @@
+---
+interface Props {
+  datos: Record<string, unknown>;
+}
+
+const { datos } = Astro.props;
+
+// JSON.stringify no escapa "<": un titular generado por la IA que contuviera
+// "</script>" cerraria este bloque e inyectaria HTML en la pagina. Escapar "<"
+// como < produce un JSON equivalente para cualquier parser.
+const jsonSeguroParaScript = JSON.stringify(datos).replace(/</g, '\\u003c');
+---
+
+<script type="application/ld+json" is:inline set:html={jsonSeguroParaScript} />

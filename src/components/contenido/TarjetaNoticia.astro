@@ -1,0 +1,119 @@
+---
+import type { ArticuloResumen } from '../../lib/api-articulos';
+import { obtenerEtiquetaCategoria } from '../../lib/categorias';
+import FotoProducto from './FotoProducto.astro';
+import PortadaGenerada from './PortadaGenerada.astro';
+
+// Tres variantes con jerarquia real, no la misma tarjeta repetida en rejilla:
+// - destacada: la apertura de portada o de una seccion, foto grande y entradilla.
+// - estandar: foto y titular para las rejillas.
+// - lateral: fila con miniatura para las listas junto a una apertura.
+// Sin caja ni sombra: la foto y el titular ya agrupan la noticia, y una tarjeta
+// con sombra repetida en cada pieza es el aspecto de plantilla que evito. En la
+// tarjeta la foto va con alt vacio: el titular ya describe la noticia.
+interface Props {
+  articulo: ArticuloResumen;
+  variante?: 'destacada' | 'estandar' | 'lateral';
+  // Nivel del titular segun donde se pinte la tarjeta, para no saltar niveles
+  // de encabezado (h1 -> h2 -> h3) en la pagina que la contiene.
+  nivelTitular?: 2 | 3;
+  esPrioritaria?: boolean;
+  // Dentro de un bloque o una pagina de seccion la categoria ya se sabe.
+  mostrarCategoria?: boolean;
+}
+
+const { articulo, variante = 'estandar', nivelTitular = 3, esPrioritaria = false, mostrarCategoria = true } = Astro.props;
+const { slug, titulo, descripcion, fechaPublicacion, categoria, producto, foto, datosClave } = articulo;
+const EtiquetaTitular = nivelTitular === 2 ? 'h2' : 'h3';
+
+const fecha = new Date(fechaPublicacion);
+const formateadorFecha = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
+const etiquetaCategoria = obtenerEtiquetaCategoria(categoria);
+// En los articulos anteriores a la entradilla, la descripcion es el propio
+// titular: repetirlo debajo solo anade ruido a la tarjeta.
+const tieneEntradillaPropia = descripcion.trim() !== titulo.trim();
+// La apertura de portada (h2) manda sobre la de cada seccion (h3).
+const esAperturaDePortada = nivelTitular === 2;
+
+const claseTitular = 'text-balance text-texto-primario transition-[color] duration-200 group-hover:text-acento-texto';
+---
+
+{
+  variante === 'lateral' ? (
+    <article class="group">
+      <a href={`/noticias/${slug}`} class="flex items-start gap-4 rounded-lg no-underline">
+        <div class="w-28 shrink-0 overflow-hidden rounded-lg ring-1 ring-borde-suave sm:w-32">
+          {foto ? (
+            <FotoProducto foto={foto} alt="" variante="miniatura" />
+          ) : (
+            <PortadaGenerada semilla={slug} categoria={categoria} producto={producto} variante="miniatura" />
+          )}
+        </div>
+        <div class="min-w-0 flex-1">
+          {mostrarCategoria && <span class="text-xs font-semibold text-acento-secundario">{etiquetaCategoria}</span>}
+          <EtiquetaTitular class:list={[claseTitular, mostrarCategoria && 'mt-0.5', 'line-clamp-3 text-base leading-snug']}>{titulo}</EtiquetaTitular>
+          <time datetime={fechaPublicacion} class="mt-1 block text-xs text-texto-secundario">
+            {formateadorFecha.format(fecha)}
+          </time>
+        </div>
+      </a>
+    </article>
+  ) : (
+    <article class="group h-full">
+      <a href={`/noticias/${slug}`} class="flex h-full flex-col gap-4 rounded-xl no-underline">
+        <div
+          class:list={[
+            'overflow-hidden ring-1 ring-borde-suave',
+            variante === 'destacada' ? 'rounded-2xl' : 'rounded-xl',
+          ]}
+        >
+          {foto ? (
+            <FotoProducto
+              foto={foto}
+              alt=""
+              variante={variante === 'destacada' ? 'destacada' : 'tarjeta'}
+              esPrioritaria={esPrioritaria}
+            />
+          ) : (
+            <PortadaGenerada
+              semilla={slug}
+              categoria={categoria}
+              producto={producto}
+              datosClave={datosClave}
+              variante={variante === 'destacada' ? 'destacada' : 'tarjeta'}
+            />
+          )}
+        </div>
+        <div class="flex flex-1 flex-col">
+          {mostrarCategoria && <span class="text-sm font-semibold text-acento-secundario">{etiquetaCategoria}</span>}
+          <EtiquetaTitular
+            class:list={[
+              claseTitular,
+              mostrarCategoria && 'mt-1',
+              variante === 'estandar'
+                ? 'text-lg leading-snug'
+                : esAperturaDePortada
+                  ? 'text-2xl leading-tight sm:text-4xl'
+                  : 'text-xl leading-tight sm:text-2xl',
+            ]}
+          >
+            {titulo}
+          </EtiquetaTitular>
+          {tieneEntradillaPropia && (
+            <p
+              class:list={[
+                'mt-2 max-w-[65ch] text-pretty text-texto-secundario',
+                variante === 'estandar' ? 'line-clamp-2 text-sm' : 'line-clamp-3 sm:text-lg',
+              ]}
+            >
+              {descripcion}
+            </p>
+          )}
+          <time datetime={fechaPublicacion} class="mt-auto pt-2 text-xs text-texto-secundario">
+            {formateadorFecha.format(fecha)}
+          </time>
+        </div>
+      </a>
+    </article>
+  )
+}

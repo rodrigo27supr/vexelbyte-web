@@ -1,0 +1,84 @@
+---
+import Cabecera from '../components/layout/Cabecera.astro';
+import PiePagina from '../components/layout/PiePagina.astro';
+import BannerCookies from '../components/BannerCookies.astro';
+import '../styles/global.css';
+
+interface Props {
+  titulo: string;
+  descripcion: string;
+  // "article" en las piezas editoriales, para que redes y Google las traten
+  // como articulo y no como pagina generica del sitio.
+  tipoOg?: 'website' | 'article';
+  // false en paginas que existen pero no deben indexarse todavia (una seccion
+  // sin contenido publicado): pido noindex en vez de ocultarlas con un 404.
+  esIndexable?: boolean;
+  // URL absoluta de la imagen al compartir: la foto del producto si la hay.
+  imagenOg?: string;
+}
+
+const { titulo, descripcion, tipoOg = 'website', esIndexable = true, imagenOg } = Astro.props;
+
+// URL canonica absoluta, no relativa: ahora que Astro.site esta configurado
+// (Fase 4.3, dominio provisional confirmado por el Tech Lead), uso la forma
+// que Google recomienda explicitamente para <link rel="canonical"> -- antes
+// de tener un dominio no podia construir esto sin inventar uno.
+const urlCanonica = new URL(Astro.url.pathname, Astro.site);
+
+// Sin foto del producto, el enlace compartido sale con la tarjeta de marca.
+// Tiene que ser una URL absoluta.
+const urlImagenOg = imagenOg ?? new URL('/og-vexelbyte.png', Astro.site).href;
+
+// Sin ID de medicion real no hay analitica: ni banner de cookies (no habria
+// nada que consentir) ni scripts de Google. Se activa definiendo la variable
+// de build ID_MEDICION_GA4 en Vercel, ver .env.example.
+const idMedicionGa4 = import.meta.env.ID_MEDICION_GA4;
+---
+
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Color de la barra del navegador en movil, a juego con el tema del sistema. -->
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0b1120" media="(prefers-color-scheme: dark)" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="generator" content={Astro.generator} />
+
+    <title>{titulo} — VexelByte</title>
+    <meta name="description" content={descripcion} />
+    <link rel="canonical" href={urlCanonica} />
+    {!esIndexable && <meta name="robots" content="noindex" />}
+
+    <meta property="og:type" content={tipoOg} />
+    <meta property="og:site_name" content="VexelByte" />
+    <meta property="og:locale" content="es_ES" />
+    <meta property="og:url" content={urlCanonica} />
+    <meta property="og:title" content={titulo} />
+    <meta property="og:description" content={descripcion} />
+    <meta property="og:image" content={urlImagenOg} />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <slot name="head" />
+  </head>
+  <body>
+    <a class="enlace-saltar-contenido" href="#contenido-principal">Saltar al contenido principal</a>
+    <Cabecera />
+    <!--
+      Auditoria WCAG 2.2 (Fase 3.3): tabindex="-1" hace que <main> sea
+      programaticamente enfocable sin entrar en el orden normal de
+      tabulacion. Sin esto, el enlace de saltar contenido desplazaba la
+      vista hasta aqui pero nunca movia el foco de verdad -- quien navegara
+      con teclado seguia con el foco en la cabecera, asi que la siguiente
+      pulsacion de Tab lo devolvia a la navegacion en vez de continuar
+      dentro del contenido, dejando el enlace practicamente inutil.
+    -->
+    <main id="contenido-principal" tabindex="-1">
+      <slot />
+    </main>
+    <PiePagina />
+    {idMedicionGa4 && <BannerCookies idMedicionGa4={idMedicionGa4} />}
+  </body>
+</html>

@@ -1,0 +1,57 @@
+---
+import LayoutBase from '../../../../layouts/LayoutBase.astro';
+import ArchivoNoticias from '../../../../components/contenido/ArchivoNoticias.astro';
+import CabeceraCategoria from '../../../../components/contenido/CabeceraCategoria.astro';
+import { obtenerArticulosPublicados, type ArticuloResumen } from '../../../../lib/api-articulos';
+import { contarPaginasArchivo, obtenerNoticiasDePagina } from '../../../../lib/archivo-noticias';
+import { CATEGORIAS, filtrarPorCategoria, type DefinicionCategoria } from '../../../../lib/categorias';
+
+// Paginas 2 en adelante del archivo de cada seccion; la primera es /categoria/<seccion>/.
+export async function getStaticPaths() {
+  const noticias = await obtenerArticulosPublicados();
+  return CATEGORIAS.flatMap((categoria) => {
+    const noticiasCategoria = filtrarPorCategoria(noticias, categoria.clave);
+    const totalPaginas = contarPaginasArchivo(noticiasCategoria);
+    return Array.from({ length: totalPaginas - 1 }, (_paginaVacia, posicion) => {
+      const numeroPagina = posicion + 2;
+      return {
+        params: { categoria: categoria.rutaSlug, pagina: String(numeroPagina) },
+        props: {
+          categoria,
+          noticiasPagina: obtenerNoticiasDePagina(noticiasCategoria, numeroPagina),
+          numeroPagina,
+          totalPaginas,
+          totalNoticias: noticiasCategoria.length,
+        },
+      };
+    });
+  });
+}
+
+interface Props {
+  categoria: DefinicionCategoria;
+  noticiasPagina: ArticuloResumen[];
+  numeroPagina: number;
+  totalPaginas: number;
+  totalNoticias: number;
+}
+
+const { categoria, noticiasPagina, numeroPagina, totalPaginas, totalNoticias } = Astro.props;
+---
+
+<LayoutBase
+  titulo={`${categoria.etiqueta}, página ${numeroPagina}`}
+  descripcion={`Archivo de ${categoria.etiqueta.toLowerCase()} en VexelByte, página ${numeroPagina} de ${totalPaginas}.`}
+>
+  <CabeceraCategoria categoria={categoria} totalNoticias={totalNoticias} numeroPagina={numeroPagina} />
+  <section class="mx-auto max-w-portal px-4 py-12 sm:px-6">
+    <h2 class="sr-only">Noticias de la página {numeroPagina}</h2>
+    <ArchivoNoticias
+      noticias={noticiasPagina}
+      paginaActual={numeroPagina}
+      totalPaginas={totalPaginas}
+      rutaBase={`/categoria/${categoria.rutaSlug}/`}
+      mostrarCategoria={false}
+    />
+  </section>
+</LayoutBase>

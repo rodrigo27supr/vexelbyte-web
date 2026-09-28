@@ -1,0 +1,158 @@
+@import './tokens.css';
+/*
+  Fuentes servidas desde nuestro dominio (Fontsource) y no desde Google Fonts:
+  pedirlas a Google enviaba la IP de cada visitante a un tercero sin
+  consentimiento (RGPD), y ademas la CSP queda sin origenes externos. Solo el
+  subconjunto latin (cubre tildes y la enie) y los pesos que usa el sistema.
+*/
+@import '@fontsource/space-grotesk/latin-500.css';
+@import '@fontsource/space-grotesk/latin-700.css';
+@import '@fontsource/inter/latin-400.css';
+@import '@fontsource/inter/latin-500.css';
+@import '@fontsource/inter/latin-600.css';
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* Deja sitio a la cabecera fija (desde 768px) al saltar a un ancla del indice
+   del articulo o al tabular hasta un elemento que quedaria debajo de ella. */
+@media (min-width: 768px) {
+  html {
+    scroll-padding-top: 5.5rem;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-fondo);
+  color: var(--color-texto-primario);
+  font-family: var(--font-cuerpo);
+  font-size: var(--tamano-cuerpo);
+  line-height: 1.6;
+}
+
+/* Todo encabezado usa la fuente tecnica (Space Grotesk) -- es el sello
+   editorial del sistema de diseno. Lo fijo aqui una sola vez a nivel global
+   para que ningun componente nuevo tenga que acordarse de pedirlo. */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-titulo);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  text-wrap: balance;
+}
+
+/* Lo que el navegador pinta por su cuenta (seleccion, cursor de texto, barra de
+   desplazamiento, casillas) tambien lleva la paleta, no el azul de sistema. */
+::selection {
+  background-color: var(--color-seleccion);
+  color: var(--color-texto-primario);
+}
+
+html {
+  accent-color: var(--color-acento);
+  caret-color: var(--color-acento);
+  scrollbar-color: var(--color-borde) var(--color-fondo);
+}
+
+/* En @layer base a proposito: Tailwind v4 pone sus utilidades en
+   @layer utilities, y CSS sin capa le gana siempre a una capa aunque tenga
+   menos especificidad. Con "a { color: inherit }" suelto, cualquier
+   text-acento-texto / hover:text-* sobre un <a> se ignoraba en silencio (el
+   enlace del banner de cookies salia gris y los del footer blancos). Los
+   enlaces siguen heredando el color por defecto, pero ya no pisan las clases.
+   Lo mismo con img: su "height: auto" suelto anulaba h-full y las fotos de
+   producto se salian de su marco. */
+@layer base {
+  a {
+    color: inherit;
+  }
+
+  img,
+  video {
+    max-width: 100%;
+    height: auto;
+    display: block;
+  }
+}
+
+/* Indicador de foco visible en todo elemento interactivo -- WCAG 2.2 AA */
+:focus-visible {
+  outline: 3px solid var(--color-foco);
+  outline-offset: 2px;
+}
+
+.enlace-saltar-contenido {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  background-color: var(--color-acento);
+  color: var(--color-acento-contraste);
+  padding: var(--espaciado-3) var(--espaciado-4);
+  border-radius: var(--radio-borde);
+  z-index: 100;
+}
+
+.enlace-saltar-contenido:focus {
+  left: var(--espaciado-4);
+  top: var(--espaciado-4);
+}
+
+/* Barra de avance de lectura del articulo, ligada al scroll sin JavaScript
+   (la CSP no admite scripts inline y no merece un archivo propio). Solo se
+   pinta donde el navegador soporta scroll-timeline; en el resto no existe. */
+.barra-progreso-lectura {
+  display: none;
+}
+
+@supports (animation-timeline: scroll()) {
+  .barra-progreso-lectura {
+    display: block;
+    position: fixed;
+    inset: 0 0 auto 0;
+    z-index: 50;
+    height: 3px;
+    background-color: var(--color-acento);
+    transform-origin: left;
+    animation: avanzar-barra-lectura linear both;
+    animation-timeline: scroll(root);
+  }
+}
+
+@keyframes avanzar-barra-lectura {
+  from {
+    scale: 0 1;
+  }
+  to {
+    scale: 1 1;
+  }
+}
+
+/* Transicion entre paginas sin JavaScript (navegacion entre documentos): un
+   fundido corto en vez del parpadeo en blanco, con la cabecera quieta porque
+   es la misma en todas las paginas. Solo con movimiento permitido; donde el
+   navegador no lo soporta, la navegacion es la normal. */
+@media (prefers-reduced-motion: no-preference) {
+  @view-transition {
+    navigation: auto;
+  }
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 180ms;
+}

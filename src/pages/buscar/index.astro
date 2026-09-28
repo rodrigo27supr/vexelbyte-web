@@ -1,0 +1,186 @@
+---
+import LayoutBase from '../../layouts/LayoutBase.astro';
+---
+
+<LayoutBase
+  titulo="Buscar"
+  descripcion="Busca noticias de hardware de PC, móviles, periféricos y rendimiento en VexelByte."
+  esIndexable={false}
+>
+  <section class="mx-auto max-w-3xl px-4 py-12 sm:px-6 sm:py-16">
+    <h1 class="text-4xl sm:text-5xl">Buscar</h1>
+    <!--
+      Formulario GET real: sin JavaScript sigue llevando a /buscar/?q=... y la
+      busqueda se puede compartir o guardar como enlace.
+    -->
+    <form role="search" action="/buscar/" method="get" class="mt-8" data-formulario-busqueda>
+      <label for="campo-busqueda" class="block text-sm font-semibold text-texto-primario">
+        Producto, marca o tema
+      </label>
+      <div class="mt-2 flex gap-2">
+        <input
+          id="campo-busqueda"
+          name="q"
+          type="search"
+          autocomplete="off"
+          spellcheck="false"
+          class="min-h-12 w-full min-w-0 rounded-full border border-borde bg-superficie px-5 text-base text-texto-primario placeholder:text-texto-secundario"
+          placeholder="Por ejemplo: RTX 5090, Galaxy, teclado"
+        />
+        <button
+          type="submit"
+          class="min-h-12 shrink-0 rounded-full bg-acento px-6 font-semibold text-acento-contraste transition-[background-color] duration-200 hover:bg-acento-hover active:translate-y-px"
+        >
+          Buscar
+        </button>
+      </div>
+    </form>
+
+    <p role="status" aria-live="polite" class="mt-8 text-sm text-texto-secundario" data-estado-busqueda></p>
+    <h2 class="sr-only">Resultados</h2>
+    <ul role="list" class="mt-4 flex flex-col divide-y divide-borde-suave" data-resultados-busqueda></ul>
+  </section>
+</LayoutBase>
+
+<script>
+  interface EntradaIndice {
+    slug: string;
+    titulo: string;
+    descripcion: string;
+    producto: string | null;
+    seccion: string;
+    fechaPublicacion: string;
+    miniatura: string | null;
+  }
+
+  // Mas alla de 30 resultados la lista deja de ayudar: mejor afinar la busqueda.
+  const MAXIMO_RESULTADOS = 30;
+  const ESPERA_ENTRE_TECLAS_MS = 150;
+
+  const formulario = document.querySelector<HTMLFormElement>('[data-formulario-busqueda]')!;
+  const campoBusqueda = document.querySelector<HTMLInputElement>('#campo-busqueda')!;
+  const estadoBusqueda = document.querySelector<HTMLElement>('[data-estado-busqueda]')!;
+  const listaResultados = document.querySelector<HTMLUListElement>('[data-resultados-busqueda]')!;
+  const formateadorFecha = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
+
+  let indicePendiente: Promise<EntradaIndice[]> | null = null;
+
+  function cargarIndice(): Promise<EntradaIndice[]> {
+    indicePendiente ??= fetch('/buscar/indice.json').then((respuesta) => {
+      if (!respuesta.ok) {
+        throw new Error(`El indice de busqueda respondio ${respuesta.status}`);
+      }
+      return respuesta.json();
+    });
+    return indicePendiente;
+  }
+
+  // Sin tildes ni mayusculas: quien escribe "movil" tiene que encontrar "Móviles".
+  function normalizarTexto(texto: string): string {
+    return texto.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  }
+
+  function puntuarEntrada(entrada: EntradaIndice, palabrasBuscadas: string[]): number {
+    const textoTitular = normalizarTexto(`${entrada.titulo} ${entrada.producto ?? ''}`);
+    const textoCompleto = `${textoTitular} ${normalizarTexto(`${entrada.descripcion} ${entrada.seccion}`)}`;
+    if (!palabrasBuscadas.every((palabra) => textoCompleto.includes(palabra))) {
+      return 0;
+    }
+    // Una coincidencia en el titular o el producto pesa mas que en la entradilla.
+    return 1 + palabrasBuscadas.filter((palabra) => textoTitular.includes(palabra)).length;
+  }
+
+  function crearResultado(entrada: EntradaIndice): HTMLLIElement {
+    const elementoLista = document.createElement('li');
+    elementoLista.className = 'py-4';
+    const enlace = document.createElement('a');
+    enlace.href = `/noticias/${entrada.slug}`;
+    enlace.className = 'group flex items-start gap-4 rounded-lg no-underline';
+
+    const marcoMiniatura = document.createElement('div');
+    marcoMiniatura.className = 'aspect-[4/3] w-24 shrink-0 overflow-hidden rounded-lg bg-superficie ring-1 ring-borde-suave sm:w-32';
+    if (entrada.miniatura) {
+      const miniatura = document.createElement('img');
+      miniatura.src = entrada.miniatura;
+      miniatura.alt = '';
+      miniatura.loading = 'lazy';
+      miniatura.className = 'h-full w-full object-contain';
+      marcoMiniatura.append(miniatura);
+    }
+
+    const bloqueTexto = document.createElement('div');
+    bloqueTexto.className = 'min-w-0 flex-1';
+    const seccion = document.createElement('span');
+    seccion.className = 'text-xs font-semibold text-acento-secundario';
+    seccion.textContent = entrada.seccion;
+    const titular = document.createElement('h3');
+    titular.className = 'mt-0.5 text-base leading-snug text-texto-primario transition-[color] duration-200 group-hover:text-acento-texto sm:text-lg';
+    titular.textContent = entrada.titulo;
+    const fecha = document.createElement('time');
+    fecha.dateTime = entrada.fechaPublicacion;
+    fecha.className = 'mt-1 block text-xs text-texto-secundario';
+    fecha.textContent = formateadorFecha.format(new Date(entrada.fechaPublicacion));
+    bloqueTexto.append(seccion, titular, fecha);
+
+    enlace.append(marcoMiniatura, bloqueTexto);
+    elementoLista.append(enlace);
+    return elementoLista;
+  }
+
+  async function mostrarResultados(consulta: string): Promise<void> {
+    const palabrasBuscadas = normalizarTexto(consulta).split(/\s+/).filter(Boolean);
+    if (palabrasBuscadas.length === 0) {
+      listaResultados.replaceChildren();
+      estadoBusqueda.textContent = '';
+      return;
+    }
+    let entradasIndice: EntradaIndice[];
+    try {
+      entradasIndice = await cargarIndice();
+    } catch (errorCarga) {
+      indicePendiente = null;
+      estadoBusqueda.textContent = 'No se pudo cargar el buscador. Recarga la página para intentarlo de nuevo.';
+      return;
+    }
+    const coincidencias = entradasIndice
+      .map((entrada) => ({ entrada, puntuacion: puntuarEntrada(entrada, palabrasBuscadas) }))
+      .filter((coincidencia) => coincidencia.puntuacion > 0)
+      .sort((primera, segunda) => segunda.puntuacion - primera.puntuacion)
+      .slice(0, MAXIMO_RESULTADOS);
+
+    listaResultados.replaceChildren(...coincidencias.map((coincidencia) => crearResultado(coincidencia.entrada)));
+    if (coincidencias.length === 0) {
+      estadoBusqueda.textContent = `Nada publicado sobre «${consulta}». Prueba con la marca o el tipo de producto.`;
+    } else if (coincidencias.length === MAXIMO_RESULTADOS) {
+      estadoBusqueda.textContent = `Los ${MAXIMO_RESULTADOS} resultados más relevantes para «${consulta}»`;
+    } else {
+      estadoBusqueda.textContent = `${coincidencias.length} ${coincidencias.length === 1 ? 'resultado' : 'resultados'} para «${consulta}»`;
+    }
+  }
+
+  let temporizadorBusqueda: ReturnType<typeof setTimeout> | undefined;
+
+  campoBusqueda.addEventListener('input', () => {
+    clearTimeout(temporizadorBusqueda);
+    temporizadorBusqueda = setTimeout(() => {
+      // La URL sigue a la busqueda para que se pueda compartir o volver atras a ella.
+      const urlBusqueda = new URL(location.href);
+      urlBusqueda.searchParams.set('q', campoBusqueda.value);
+      history.replaceState(null, '', urlBusqueda);
+      mostrarResultados(campoBusqueda.value);
+    }, ESPERA_ENTRE_TECLAS_MS);
+  });
+
+  formulario.addEventListener('submit', (eventoEnvio) => {
+    eventoEnvio.preventDefault();
+    mostrarResultados(campoBusqueda.value);
+  });
+
+  const consultaInicial = new URLSearchParams(location.search).get('q') ?? '';
+  campoBusqueda.value = consultaInicial;
+  if (consultaInicial) {
+    mostrarResultados(consultaInicial);
+  } else {
+    campoBusqueda.focus();
+  }
+</script>

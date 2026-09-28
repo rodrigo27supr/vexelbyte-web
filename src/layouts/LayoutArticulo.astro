@@ -1,0 +1,244 @@
+---
+import LayoutBase from './LayoutBase.astro';
+import EsquemaJsonLd from '../components/seo/EsquemaJsonLd.astro';
+import BotonCompartir from '../components/contenido/BotonCompartir.astro';
+import CarruselNoticias from '../components/contenido/CarruselNoticias.astro';
+import FotoProducto from '../components/contenido/FotoProducto.astro';
+import IndiceArticulo from '../components/contenido/IndiceArticulo.astro';
+import PortadaGenerada from '../components/contenido/PortadaGenerada.astro';
+import type { ArticuloResumen, CategoriaArticulo, EspecificacionTecnica, FotoArticulo } from '../lib/api-articulos';
+import { buscarCategoria } from '../lib/categorias';
+import { construirEsquemaMigas } from '../lib/esquema-migas';
+import type { ApartadoIndice } from '../lib/indice-articulo';
+
+interface Props {
+  titulo: string;
+  descripcion: string;
+  autor: string;
+  fechaPublicacion: Date;
+  esquemaJsonLd: Record<string, unknown>;
+  semillaPortada: string;
+  categoria: CategoriaArticulo | null;
+  producto: string | null;
+  especificaciones: EspecificacionTecnica[];
+  datosClave: EspecificacionTecnica[];
+  puntosClave: string[];
+  minutosLectura: number;
+  relacionadas: ArticuloResumen[];
+  apartados: ApartadoIndice[];
+  foto: FotoArticulo | null;
+  imagenOg?: string;
+}
+
+const {
+  titulo,
+  descripcion,
+  autor,
+  fechaPublicacion,
+  esquemaJsonLd,
+  semillaPortada,
+  categoria,
+  producto,
+  especificaciones,
+  datosClave,
+  puntosClave,
+  minutosLectura,
+  relacionadas,
+  apartados,
+  foto,
+  imagenOg,
+} = Astro.props;
+
+// Con un solo subtitulo el indice no ayuda a orientarse: solo ocupa sitio.
+const MINIMO_APARTADOS_INDICE = 2;
+
+const formateadorFecha = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+const definicionCategoria = buscarCategoria(categoria);
+const tieneFichaTecnica = especificaciones.length > 0;
+const tieneIndice = apartados.length >= MINIMO_APARTADOS_INDICE;
+const tieneColumnaLateral = tieneFichaTecnica || tieneIndice;
+// En los articulos anteriores a la entradilla, la descripcion es el propio
+// titular: repetirlo bajo el h1 solo anade ruido.
+const tieneEntradillaPropia = descripcion.trim() !== titulo.trim();
+const claseEnlaceCredito = 'underline underline-offset-2 hover:text-acento-texto';
+const esquemaMigas = construirEsquemaMigas(Astro.site, [
+  { nombre: 'Inicio', ruta: '/' },
+  definicionCategoria
+    ? { nombre: definicionCategoria.etiqueta, ruta: `/categoria/${definicionCategoria.rutaSlug}/` }
+    : { nombre: 'Noticias', ruta: '/noticias/' },
+  { nombre: titulo, ruta: Astro.url.pathname },
+]);
+---
+
+<LayoutBase titulo={titulo} descripcion={descripcion} tipoOg="article" imagenOg={imagenOg}>
+  <Fragment slot="head">
+    <EsquemaJsonLd datos={esquemaJsonLd} />
+    <EsquemaJsonLd datos={esquemaMigas} />
+  </Fragment>
+
+  <!-- Avance de lectura ligado al scroll solo con CSS (global.css); donde el navegador no lo soporta, no aparece. -->
+  <div aria-hidden="true" class="barra-progreso-lectura"></div>
+
+  <article class="mx-auto max-w-portal px-4 py-10 sm:px-6 sm:py-14">
+    <header class="max-w-3xl">
+      <!-- Las migas ya nombran la seccion: no repito la categoria como rotulo encima del titular. -->
+      <nav aria-label="Migas de pan" class="text-sm text-texto-secundario">
+        <a href="/" class="underline-offset-4 hover:text-acento-texto hover:underline">Inicio</a>
+        <span aria-hidden="true" class="mx-2">/</span>
+        {
+          definicionCategoria ? (
+            <a
+              href={`/categoria/${definicionCategoria.rutaSlug}/`}
+              class="font-semibold text-acento-secundario underline-offset-4 hover:text-acento-texto hover:underline"
+            >
+              {definicionCategoria.etiqueta}
+            </a>
+          ) : (
+            <a href="/noticias/" class="underline-offset-4 hover:text-acento-texto hover:underline">
+              Noticias
+            </a>
+          )
+        }
+      </nav>
+      <h1 class="mt-5 text-3xl leading-tight sm:text-5xl">{titulo}</h1>
+      {tieneEntradillaPropia && <p class="mt-5 text-lg text-pretty text-texto-secundario sm:text-xl">{descripcion}</p>}
+      <div class="mt-6 flex flex-wrap items-center justify-between gap-4">
+        <p class="flex flex-wrap gap-x-5 gap-y-1 text-sm text-texto-secundario">
+          <span>Por <span class="font-semibold text-texto-primario">{autor}</span></span>
+          <time datetime={fechaPublicacion.toISOString()}>{formateadorFecha.format(fechaPublicacion)}</time>
+          <span>{minutosLectura} min de lectura</span>
+        </p>
+        <BotonCompartir titulo={titulo} />
+      </div>
+    </header>
+
+    {
+      foto ? (
+        <figure class="mt-8">
+          <div class="overflow-hidden rounded-2xl ring-1 ring-borde-suave">
+            <!-- Una foto ilustrativa no describe el producto: alt vacio, es decorativa. -->
+            <FotoProducto foto={foto} alt={foto.esIlustrativa ? '' : (producto ?? titulo)} variante="cabecera" esPrioritaria />
+          </div>
+          <!--
+            El pie cita autor y origen, como piden el material de prensa y la
+            licencia de Pexels, y deja claro cuando la foto es solo ilustrativa.
+            Enlaces a terceros sin referrer: es una cita, no un clic de nuestro
+            lector que tengan que rastrear.
+          -->
+          <figcaption class="mt-2 text-xs text-texto-secundario">
+            {
+              foto.esIlustrativa ? (
+                <>
+                  Imagen ilustrativa. Foto de {foto.autor} en{' '}
+                  <a href={foto.urlOrigen} rel="nofollow noopener noreferrer" class={claseEnlaceCredito}>
+                    Pexels
+                  </a>
+                </>
+              ) : (
+                <>
+                  Imagen: {foto.autor}, {foto.licencia}, vía{' '}
+                  <a href={foto.urlOrigen} rel="nofollow noopener noreferrer" class={claseEnlaceCredito}>
+                    {new URL(foto.urlOrigen).hostname.replace(/^www\./, '')}
+                  </a>
+                </>
+              )
+            }
+          </figcaption>
+        </figure>
+      ) : (
+        <div class="mt-8 overflow-hidden rounded-2xl ring-1 ring-borde-suave">
+          <PortadaGenerada
+            semilla={semillaPortada}
+            categoria={categoria}
+            producto={producto}
+            datosClave={datosClave}
+            variante="cabecera"
+          />
+        </div>
+      )
+    }
+
+    <div class:list={['mt-10 gap-14', tieneColumnaLateral && 'lg:grid lg:grid-cols-[minmax(0,1fr)_20rem]']}>
+      <div class="min-w-0">
+        {
+          puntosClave.length > 0 && (
+            <section aria-labelledby="titulo-puntos-clave" class="mb-10 max-w-[65ch] rounded-2xl bg-fondo-realzado p-6 sm:p-7 sm:text-lg">
+              <h2 id="titulo-puntos-clave" class="text-lg">
+                Puntos clave
+              </h2>
+              <ul class="mt-4 flex flex-col gap-3">
+                {puntosClave.map((punto) => (
+                  <li class="flex gap-3 text-texto-primario">
+                    <svg aria-hidden="true" viewBox="0 0 20 20" class="mt-1 size-4 shrink-0 fill-none stroke-acento" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M4 10.5 8 14.5 16 6" />
+                    </svg>
+                    <span class="text-pretty">{punto}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )
+        }
+
+        {
+          tieneIndice && (
+            <div class="mb-10 lg:hidden">
+              <IndiceArticulo apartados={apartados} />
+            </div>
+          )
+        }
+
+        <!--
+          "prose" limita el ancho de lectura a 65ch: una linea mas larga en un
+          monitor ancho obliga al ojo a buscar el inicio del siguiente renglon.
+        -->
+        <div class="prosa-articulo prose sm:prose-lg">
+          <slot />
+        </div>
+      </div>
+
+      {
+        tieneColumnaLateral && (
+          <aside class="mt-12 flex flex-col gap-8 lg:mt-0">
+            {tieneFichaTecnica && (
+              <div class="overflow-hidden rounded-2xl bg-superficie ring-1 ring-borde-suave">
+                <table class="w-full border-collapse text-sm">
+                  <caption class="px-5 pt-5 pb-3 text-left font-titulo text-lg font-bold text-texto-primario">
+                    Ficha técnica
+                    {producto && <span class="block font-cuerpo text-sm font-normal text-texto-secundario">{producto}</span>}
+                  </caption>
+                  <tbody>
+                    {especificaciones.map((especificacion) => (
+                      <tr class="even:bg-fondo-realzado">
+                        <th scope="row" class="w-2/5 px-5 py-2.5 text-left align-top font-semibold text-texto-secundario">
+                          {especificacion.nombre}
+                        </th>
+                        <td class="px-5 py-2.5 align-top tabular-nums text-texto-primario">{especificacion.valor}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {tieneIndice && (
+              <div class="hidden lg:sticky lg:top-24 lg:block">
+                <IndiceArticulo apartados={apartados} />
+              </div>
+            )}
+          </aside>
+        )
+      }
+    </div>
+
+    {
+      relacionadas.length > 0 && (
+        <section aria-labelledby="titulo-relacionadas" class="mt-20 border-t border-borde-suave pt-10">
+          <h2 id="titulo-relacionadas" class="mb-8 text-2xl">
+            Sigue leyendo
+          </h2>
+          <CarruselNoticias noticias={relacionadas} etiquetaAccesible="Noticias relacionadas" />
+        </section>
+      )
+    }
+  </article>
+</LayoutBase>

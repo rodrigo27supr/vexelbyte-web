@@ -1,0 +1,89 @@
+---
+import LayoutBase from '../../layouts/LayoutBase.astro';
+import ArchivoNoticias from '../../components/contenido/ArchivoNoticias.astro';
+import CabeceraCategoria from '../../components/contenido/CabeceraCategoria.astro';
+import EsquemaJsonLd from '../../components/seo/EsquemaJsonLd.astro';
+import TarjetaNoticia from '../../components/contenido/TarjetaNoticia.astro';
+import { obtenerArticulosPublicados } from '../../lib/api-articulos';
+import { contarPaginasArchivo, obtenerNoticiasDePagina } from '../../lib/archivo-noticias';
+import { CATEGORIAS, filtrarPorCategoria, type DefinicionCategoria } from '../../lib/categorias';
+import { construirEsquemaMigas } from '../../lib/esquema-migas';
+
+// Una pagina por linea editorial, exista contenido o no: el menu enlaza las
+// cuatro, y una categoria vacia muestra su estado vacio con noindex en vez de
+// dar un 404. Las noticias antiguas de la seccion siguen en /pagina/N/.
+export function getStaticPaths() {
+  return CATEGORIAS.map((categoria) => ({
+    params: { categoria: categoria.rutaSlug },
+    props: { categoria },
+  }));
+}
+
+interface Props {
+  categoria: DefinicionCategoria;
+}
+
+// Apertura grande con las tres siguientes al lado, como en la portada.
+const NOTICIAS_JUNTO_A_APERTURA = 3;
+
+const { categoria } = Astro.props;
+const noticiasCategoria = filtrarPorCategoria(await obtenerArticulosPublicados(), categoria.clave);
+const [noticiaApertura, ...restoPrimeraPagina] = obtenerNoticiasDePagina(noticiasCategoria, 1);
+const noticiasJuntoAApertura = restoPrimeraPagina.slice(0, NOTICIAS_JUNTO_A_APERTURA);
+const noticiasRejilla = restoPrimeraPagina.slice(NOTICIAS_JUNTO_A_APERTURA);
+const totalPaginas = contarPaginasArchivo(noticiasCategoria);
+const esquemaMigas = construirEsquemaMigas(Astro.site, [
+  { nombre: 'Inicio', ruta: '/' },
+  { nombre: categoria.etiqueta, ruta: `/categoria/${categoria.rutaSlug}/` },
+]);
+---
+
+<LayoutBase
+  titulo={categoria.etiqueta}
+  descripcion={`Noticias de ${categoria.etiqueta.toLowerCase()} en VexelByte. ${categoria.descripcion}`}
+  esIndexable={noticiasCategoria.length > 0}
+>
+  <Fragment slot="head">
+    <EsquemaJsonLd datos={esquemaMigas} />
+  </Fragment>
+  <CabeceraCategoria categoria={categoria} totalNoticias={noticiasCategoria.length} />
+
+  <section class="mx-auto max-w-portal px-4 py-12 sm:px-6">
+    {
+      noticiaApertura === undefined ? (
+        <p class="rounded-2xl bg-fondo-realzado p-6 text-texto-secundario">
+          Todavía no hay noticias en esta categoría. Vuelve pronto.
+        </p>
+      ) : (
+        <>
+          <div class="grid gap-8 lg:grid-cols-12 lg:gap-10">
+            <div class="lg:col-span-7">
+              <TarjetaNoticia articulo={noticiaApertura} variante="destacada" nivelTitular={2} esPrioritaria mostrarCategoria={false} />
+            </div>
+            {noticiasJuntoAApertura.length > 0 && (
+              <ul role="list" class="flex flex-col divide-y divide-borde-suave lg:col-span-5">
+                {noticiasJuntoAApertura.map((articulo) => (
+                  <li class="py-4 first:pt-0">
+                    <TarjetaNoticia articulo={articulo} variante="lateral" nivelTitular={2} mostrarCategoria={false} />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          {(noticiasRejilla.length > 0 || totalPaginas > 1) && (
+            <>
+              <h2 class="mt-16 mb-8 border-b border-borde-suave pb-3 text-2xl">Más de {categoria.etiqueta}</h2>
+              <ArchivoNoticias
+                noticias={noticiasRejilla}
+                paginaActual={1}
+                totalPaginas={totalPaginas}
+                rutaBase={`/categoria/${categoria.rutaSlug}/`}
+                mostrarCategoria={false}
+              />
+            </>
+          )}
+        </>
+      )
+    }
+  </section>
+</LayoutBase>

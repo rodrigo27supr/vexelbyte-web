@@ -1,0 +1,59 @@
+---
+import LayoutBase from '../layouts/LayoutBase.astro';
+import Boton from '../components/ui/Boton.astro';
+import TarjetaNoticia from '../components/contenido/TarjetaNoticia.astro';
+import { obtenerArticulosPublicados } from '../lib/api-articulos';
+
+// Un enlace roto suele venir de una noticia antigua borrada por la retencion:
+// en vez de un callejon sin salida, ofrezco buscarla y las ultimas publicadas.
+const NOTICIAS_SUGERIDAS = 3;
+const ultimasNoticias = (await obtenerArticulosPublicados()).slice(0, NOTICIAS_SUGERIDAS);
+---
+
+<LayoutBase titulo="Página no encontrada" descripcion="La página que buscas no existe o se ha movido." esIndexable={false}>
+  <section class="mx-auto max-w-portal px-4 py-12 sm:px-6 sm:py-16">
+    <div class="max-w-2xl">
+      <h1 class="text-3xl sm:text-5xl">Esta página no existe</h1>
+      <p class="mt-4 text-lg text-texto-secundario">
+        Puede que la noticia se haya retirado o que la dirección tenga un error. Búscala por el producto o la marca.
+      </p>
+      <form role="search" action="/buscar/" method="get" class="mt-8 flex gap-2">
+        <label for="campo-busqueda-404" class="sr-only">Buscar noticias</label>
+        <input
+          id="campo-busqueda-404"
+          name="q"
+          type="search"
+          autocomplete="off"
+          class="min-h-12 w-full min-w-0 rounded-full border border-borde bg-superficie px-5 text-base text-texto-primario placeholder:text-texto-secundario"
+          placeholder="Por ejemplo: RTX 5090"
+        />
+        <button
+          type="submit"
+          class="min-h-12 shrink-0 rounded-full bg-acento px-6 font-semibold text-acento-contraste transition-[background-color] duration-200 hover:bg-acento-hover active:translate-y-px"
+        >
+          Buscar
+        </button>
+      </form>
+      <div class="mt-6">
+        <Boton href="/" variante="secundario">Ir a la portada</Boton>
+      </div>
+    </div>
+
+    {
+      ultimasNoticias.length > 0 && (
+        <section aria-labelledby="titulo-ultimas-404" class="mt-16 border-t border-borde-suave pt-10">
+          <h2 id="titulo-ultimas-404" class="mb-8 text-2xl">
+            Lo último publicado
+          </h2>
+          <ul role="list" class="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
+            {ultimasNoticias.map((articulo) => (
+              <li>
+                <TarjetaNoticia articulo={articulo} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      )
+    }
+  </section>
+</LayoutBase>
