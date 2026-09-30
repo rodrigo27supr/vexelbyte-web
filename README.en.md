@@ -25,7 +25,7 @@
 
 ## My role
 
-I acted as the project's Tech Lead. The code was written by a coding agent (Claude Code); the decisions, the auditing and the rollout were mine.
+I directed the project from start to finish. The code was written by a coding agent (Claude Code); the decisions, the auditing and the rollout were mine.
 
 **I designed the product and set the rules.** I wrote the standard the agent had to follow and gave it quality skills for every delivery: performance, accessibility, security, SEO and design. Every change is tested locally first, on a separate branch and against a copy of the database, and only reaches production when I approve it.
 
