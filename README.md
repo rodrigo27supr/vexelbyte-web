@@ -23,7 +23,7 @@
 
 ## Mi papel
 
-He actuado como Tech Lead del proyecto. El código lo ha escrito un agente de programación (Claude Code); las decisiones, la auditoría y la puesta en marcha han sido mías.
+He dirigido el proyecto de principio a fin. El código lo ha escrito un agente de programación (Claude Code); las decisiones, la auditoría y la puesta en marcha han sido mías.
 
 **Diseñé el producto y fijé las reglas.** Escribí el estándar que el agente debía cumplir y le di skills de calidad para cada entrega: rendimiento, accesibilidad, seguridad, SEO y diseño. Todo cambio se prueba primero en local, en una rama aparte y contra una copia de la base de datos, y solo llega a producción cuando yo lo apruebo.
 
