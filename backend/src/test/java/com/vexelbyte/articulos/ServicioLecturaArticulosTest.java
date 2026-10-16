@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -23,9 +24,10 @@ class ServicioLecturaArticulosTest {
 
   private final ArticuloRepository repositorioArticulos = mock(ArticuloRepository.class);
   private final FotoArticuloAlmacenadaRepository repositorioFotos = mock(FotoArticuloAlmacenadaRepository.class);
+  private final Clock reloj = Clock.fixed(Instant.parse("2027-03-16T08:00:00Z"), ZoneOffset.UTC);
+  private final CacheLecturaArticulos cacheLectura = new CacheLecturaArticulos(reloj);
   private final ServicioLecturaArticulos servicioLectura =
-      new ServicioLecturaArticulos(repositorioArticulos, repositorioFotos, new ObjectMapper(),
-          Clock.fixed(Instant.parse("2027-03-16T08:00:00Z"), ZoneOffset.UTC));
+      new ServicioLecturaArticulos(repositorioArticulos, repositorioFotos, new ObjectMapper(), reloj, cacheLectura);
 
   private Articulo construirArticuloPublicado(String slug) {
     Articulo articulo = new Articulo();
@@ -107,6 +109,44 @@ class ServicioLecturaArticulosTest {
 
     assertThat(detalle.especificaciones()).isEmpty();
     assertThat(detalle.puntosClave()).isEmpty();
+  }
+
+  @Test
+  void laListaYaLeidaNoVuelveALeerseDeLaBaseHastaQueSeInvalida() {
+    when(repositorioArticulos.buscarPublicados(any())).thenReturn(List.of(construirArticuloPublicado("a")));
+
+    servicioLectura.listarPublicados();
+    servicioLectura.listarPublicados();
+    verify(repositorioArticulos, times(1)).buscarPublicados(any());
+
+    // El ciclo la invalida al publicar: la reconstruccion de la web tiene que ver la noticia nueva.
+    cacheLectura.invalidar();
+    servicioLectura.listarPublicados();
+    verify(repositorioArticulos, times(2)).buscarPublicados(any());
+  }
+
+  @Test
+  void elDetalleYaLeidoNoVuelveALeerseDeLaBase() {
+    when(repositorioArticulos.buscarPublicadoPorSlug(eq("oppo-k14-plus"), any()))
+        .thenReturn(Optional.of(construirArticuloPublicado("oppo-k14-plus")));
+
+    servicioLectura.obtenerPorSlug("oppo-k14-plus");
+    ResponseEntity<ArticuloDetalleResponse> segunda = servicioLectura.obtenerPorSlug("oppo-k14-plus");
+
+    assertThat(segunda.getStatusCode()).isEqualTo(HttpStatus.OK);
+    verify(repositorioArticulos, times(1)).buscarPublicadoPorSlug(eq("oppo-k14-plus"), any());
+  }
+
+  @Test
+  void conLaListaEnCacheUnSlugInventadoDa404SinPreguntarALaBase() {
+    when(repositorioArticulos.buscarPublicados(any())).thenReturn(List.of(construirArticuloPublicado("existe")));
+    servicioLectura.listarPublicados();
+
+    // Pedir slugs inventados en bucle no puede gastar transferencia de Neon.
+    assertThat(servicioLectura.obtenerPorSlug("inventado").getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    assertThat(servicioLectura.obtenerFoto("inventado").getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+
+    verify(repositorioArticulos, never()).buscarPublicadoPorSlug(eq("inventado"), any());
   }
 
   @Test

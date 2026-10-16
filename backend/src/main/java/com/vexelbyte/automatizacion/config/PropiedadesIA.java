@@ -10,16 +10,11 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record PropiedadesIA(
     ProveedorGemini gemini,
     ProveedorCompatibleOpenAi groq,
-    ProveedorCompatibleOpenAi openrouter,
-    ProveedorAnthropic anthropic) {
+    ProveedorCompatibleOpenAi openrouter) {
 
   public record ProveedorGemini(String apiKey, List<String> modelos, String urlBase, double llamadasPorMinuto) {
   }
 
   public record ProveedorCompatibleOpenAi(String apiKey, String modelo, String urlBase, double llamadasPorMinuto) {
-  }
-
-  public record ProveedorAnthropic(
-      String apiKey, String modelo, String urlBase, String version, double llamadasPorMinuto) {
   }
 }

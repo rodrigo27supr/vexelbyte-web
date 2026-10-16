@@ -1,6 +1,8 @@
 package com.vexelbyte.automatizacion.ia;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.jsonPath;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
@@ -32,8 +34,8 @@ class ClienteGeminiIATest {
         """;
 
     servidorSimulado.expect(requestTo(
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent"
-                + "?key=clave-de-prueba"))
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent"))
+        .andExpect(header("x-goog-api-key", "clave-de-prueba"))
         .andExpect(method(HttpMethod.POST))
         .andExpect(jsonPath("$.generationConfig.responseMimeType").value("application/json"))
         .andRespond(withSuccess(jsonRespuestaSimulada, MediaType.APPLICATION_JSON));
@@ -54,8 +56,8 @@ class ClienteGeminiIATest {
         RestClient.builder().baseUrl("https://generativelanguage.googleapis.com");
     MockRestServiceServer servidorSimulado = MockRestServiceServer.bindTo(constructorClienteHttp).build();
     servidorSimulado.expect(requestTo(
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent"
-                + "?key=clave-de-prueba"))
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent"))
+        .andExpect(header("x-goog-api-key", "clave-de-prueba"))
         .andExpect(jsonPath("$.contents[0].parts[0].text").value("Titular de la noticia"))
         .andExpect(jsonPath("$.contents[0].parts[1].inline_data.mime_type").value("image/jpeg"))
         .andExpect(jsonPath("$.contents[0].parts[1].inline_data.data").value("AQID"))
@@ -71,5 +73,24 @@ class ClienteGeminiIATest {
 
     assertThat(textoGenerado).isEqualTo("{}");
     servidorSimulado.verify();
+  }
+
+  @Test
+  void unFalloDeConexionNoDejaLaClaveEnElMensajeDeLaExcepcion() {
+    RestClient.Builder constructorClienteHttp =
+        RestClient.builder().baseUrl("https://generativelanguage.googleapis.com");
+    MockRestServiceServer servidorSimulado = MockRestServiceServer.bindTo(constructorClienteHttp).build();
+    servidorSimulado.expect(requestTo(
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent"))
+        .andRespond(solicitud -> {
+          throw new java.io.IOException("conexion cortada");
+        });
+    ClienteGeminiIA cliente = new ClienteGeminiIA(
+        constructorClienteHttp.build(), "clave-secreta-de-prueba", "gemini-3.5-flash-lite", LIMITADOR_SIN_ESPERA_PRACTICA);
+
+    // La cadena de proveedores escribe este mensaje en el registro de Render.
+    assertThatThrownBy(() -> cliente.generarTexto("sistema", "usuario"))
+        .hasMessageContaining("generativelanguage.googleapis.com")
+        .hasMessageNotContaining("clave-secreta-de-prueba");
   }
 }

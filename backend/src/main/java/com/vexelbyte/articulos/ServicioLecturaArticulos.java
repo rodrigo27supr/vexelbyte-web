@@ -40,23 +40,31 @@ class ServicioLecturaArticulos {
   private final FotoArticuloAlmacenadaRepository repositorioFotos;
   private final ObjectMapper mapeadorJson;
   private final Clock reloj;
+  private final CacheLecturaArticulos cacheLectura;
   private final CacheFotosArticulos cacheFotos;
 
   ServicioLecturaArticulos(
       ArticuloRepository repositorioArticulos, FotoArticuloAlmacenadaRepository repositorioFotos,
-      ObjectMapper mapeadorJson, Clock reloj) {
+      ObjectMapper mapeadorJson, Clock reloj, CacheLecturaArticulos cacheLectura) {
     this.repositorioArticulos = repositorioArticulos;
     this.repositorioFotos = repositorioFotos;
     this.mapeadorJson = mapeadorJson;
     this.reloj = reloj;
-    this.cacheFotos = new CacheFotosArticulos(reloj);
+    this.cacheLectura = cacheLectura;
+    this.cacheFotos = cacheLectura.fotos();
   }
 
   List<ArticuloResumenResponse> listarPublicados() {
-    return repositorioArticulos.buscarPublicados(calcularLimiteSinFoto()).stream()
+    return cacheLectura.obtenerLista().orElseGet(this::leerListaDeLaBase);
+  }
+
+  private List<ArticuloResumenResponse> leerListaDeLaBase() {
+    List<ArticuloResumenResponse> lista = repositorioArticulos.buscarPublicados(calcularLimiteSinFoto()).stream()
         .map(articulo -> ArticuloResumenResponse.desde(
             articulo, extraerDatosClave(leerListaJson(articulo.getEspecificacionesJson(), TIPO_LISTA_ESPECIFICACIONES))))
         .toList();
+    cacheLectura.guardarLista(lista);
+    return lista;
   }
 
   // La IA ordena la ficha por relevancia: la portada de datos muestra las
@@ -72,14 +80,28 @@ class ServicioLecturaArticulos {
 
   // Un articulo despublicado da 404 aunque se conozca su slug exacto.
   ResponseEntity<ArticuloDetalleResponse> obtenerPorSlug(String slug) {
-    return repositorioArticulos.buscarPublicadoPorSlug(slug, calcularLimiteSinFoto())
-        .map(this::construirDetalle)
+    if (cacheLectura.sabeQueNoEstaPublicado(slug)) {
+      return ResponseEntity.notFound().build();
+    }
+    return cacheLectura.obtenerDetalle(slug)
+        .or(() -> leerDetalleDeLaBase(slug))
         .map(ResponseEntity::ok)
         .orElseGet(() -> ResponseEntity.notFound().build());
   }
 
+  private Optional<ArticuloDetalleResponse> leerDetalleDeLaBase(String slug) {
+    Optional<ArticuloDetalleResponse> detalle = repositorioArticulos
+        .buscarPublicadoPorSlug(slug, calcularLimiteSinFoto())
+        .map(this::construirDetalle);
+    detalle.ifPresent(detalleLeido -> cacheLectura.guardarDetalle(slug, detalleLeido));
+    return detalle;
+  }
+
   // Igual que el detalle: la foto de un articulo despublicado da 404.
   ResponseEntity<byte[]> obtenerFoto(String slug) {
+    if (cacheLectura.sabeQueNoEstaPublicado(slug)) {
+      return ResponseEntity.notFound().build();
+    }
     return cacheFotos.obtener(slug)
         .or(() -> leerFotoDeLaBase(slug))
         .map(foto -> ResponseEntity.ok()

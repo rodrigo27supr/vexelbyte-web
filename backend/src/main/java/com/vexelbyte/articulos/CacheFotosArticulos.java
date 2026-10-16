@@ -19,8 +19,10 @@ class CacheFotosArticulos {
   // la menos usada.
   private static final long PESO_MAXIMO_BYTES = 40L * 1024 * 1024;
 
-  // La foto solo cambia si la retencion la recomprime: una hora de desfase da igual.
-  private static final Duration VIGENCIA = Duration.ofHours(1);
+  // La foto solo cambia si la retencion la recomprime: un dia de desfase da igual.
+  // Es largo a proposito: la API es publica y quien la pida en bucle solo puede
+  // obligar a Neon a releer cada foto una vez al dia, no cada hora.
+  private static final Duration VIGENCIA = Duration.ofHours(24);
 
   private final Clock reloj;
   // Orden de acceso para expulsar la foto menos usada.
@@ -29,6 +31,11 @@ class CacheFotosArticulos {
 
   CacheFotosArticulos(Clock reloj) {
     this.reloj = reloj;
+  }
+
+  synchronized void vaciar() {
+    fotosPorSlug.clear();
+    pesoActualBytes = 0;
   }
 
   synchronized Optional<FotoServida> obtener(String slug) {

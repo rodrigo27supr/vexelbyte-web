@@ -30,6 +30,9 @@ class LecturaPublicaArticulosSeguridadTest {
   @Autowired
   private FotoArticuloAlmacenadaRepository repositorioFotos;
 
+  @Autowired
+  private CacheLecturaArticulos cacheLectura;
+
   private RestTestClient clienteHttpPrueba;
 
   @BeforeEach
@@ -37,10 +40,13 @@ class LecturaPublicaArticulosSeguridadTest {
     clienteHttpPrueba = RestTestClient.bindToServer().baseUrl("http://localhost:" + puertoAsignado).build();
   }
 
+  // La cache de lectura vive en el contexto de Spring, compartido por los tests:
+  // sin vaciarla, cada test veria la lista del anterior.
   @AfterEach
   void limpiarArticulosDePrueba() {
     repositorioFotos.deleteAll();
     repositorioArticulos.deleteAll();
+    cacheLectura.invalidar();
   }
 
   @Test
@@ -89,6 +95,32 @@ class LecturaPublicaArticulosSeguridadTest {
 
     assertThat(listado).extracting(ArticuloResumenResponse::slug).containsExactly("foto-fallando-desde-ayer");
     clienteHttpPrueba.get().uri("/api/articulos/recien-redactada").exchange().expectStatus().isNotFound();
+  }
+
+  @Test
+  void laListaSeSirveDeLaCacheHastaQueElCicloLaInvalida() {
+    repositorioArticulos.save(construirArticulo("primera", false));
+    assertThat(listarSlugsPublicados()).containsExactly("primera");
+
+    // Una noticia nueva en la base no aparece mientras la lista este en cache:
+    // pedir la API en bucle no puede gastar transferencia de Neon.
+    repositorioArticulos.save(construirArticulo("segunda", false));
+    assertThat(listarSlugsPublicados()).containsExactly("primera");
+    clienteHttpPrueba.get().uri("/api/articulos/segunda").exchange().expectStatus().isNotFound();
+
+    // Al publicar, el ciclo la invalida y la reconstruccion de la web ya ve la nueva.
+    cacheLectura.invalidar();
+    assertThat(listarSlugsPublicados()).containsExactlyInAnyOrder("primera", "segunda");
+    clienteHttpPrueba.get().uri("/api/articulos/segunda").exchange().expectStatus().isOk();
+  }
+
+  private String[] listarSlugsPublicados() {
+    ArticuloResumenResponse[] listado = clienteHttpPrueba.get().uri("/api/articulos")
+        .exchange()
+        .expectStatus().isOk()
+        .returnResult(ArticuloResumenResponse[].class)
+        .getResponseBody();
+    return java.util.Arrays.stream(listado).map(ArticuloResumenResponse::slug).toArray(String[]::new);
   }
 
   @Test

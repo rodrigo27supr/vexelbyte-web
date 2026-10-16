@@ -5,12 +5,14 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.vexelbyte.articulos.CacheLecturaArticulos;
 import com.vexelbyte.articulos.CategoriaArticulo;
 import com.vexelbyte.articulos.EspecificacionTecnica;
 import com.vexelbyte.automatizacion.busqueda.ClienteBusquedaTavily;
@@ -39,6 +41,7 @@ import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
 import org.mockito.ArgumentCaptor;
 import org.springframework.web.client.ResourceAccessException;
 
@@ -58,6 +61,7 @@ class TrabajoSincronizacionContenidoTest {
   private final CalendarioSecciones calendarioSecciones = mock(CalendarioSecciones.class);
   private final ServicioReescrituraArticulos servicioReescritura = mock(ServicioReescrituraArticulos.class);
   private final NotificadorReconstruccionWeb notificadorReconstruccionWeb = mock(NotificadorReconstruccionWeb.class);
+  private final CacheLecturaArticulos cacheLecturaArticulos = mock(CacheLecturaArticulos.class);
 
   // El preparador es real, con sus clientes externos simulados: asi estos
   // tests cubren tambien la decision de que material recibe la IA.
@@ -65,7 +69,7 @@ class TrabajoSincronizacionContenidoTest {
       clienteFeed, new PreparadorMaterialFuente(clienteNoticiaGsmarena, clienteBusqueda), clasificadorTitulares,
       pipelineGeneracionContenido, servicioIngestaArticulos, registroDescartadas, servicioFotos, calendarioSecciones,
       servicioReescritura, new PropiedadesFeedHardware(List.of(URL_FEED_PC, URL_FEED_MOVILES), 2),
-      notificadorReconstruccionWeb);
+      notificadorReconstruccionWeb, cacheLecturaArticulos);
 
   // Por defecto todas las secciones estan abiertas y el clasificador aprueba
   // cada titular en una seccion distinta (rotando), para que el ritmo por
@@ -587,7 +591,10 @@ class TrabajoSincronizacionContenidoTest {
 
     trabajo.sincronizarNoticiasHardware();
 
-    verify(notificadorReconstruccionWeb).solicitarReconstruccion();
+    // Primero vacia la cache de lectura: si no, la reconstruccion leeria la lista vieja.
+    InOrder enOrden = inOrder(cacheLecturaArticulos, notificadorReconstruccionWeb);
+    enOrden.verify(cacheLecturaArticulos).invalidar();
+    enOrden.verify(notificadorReconstruccionWeb).solicitarReconstruccion();
   }
 
   @Test
@@ -597,6 +604,7 @@ class TrabajoSincronizacionContenidoTest {
     trabajo.sincronizarNoticiasHardware();
 
     verify(notificadorReconstruccionWeb, never()).solicitarReconstruccion();
+    verify(cacheLecturaArticulos, never()).invalidar();
   }
 
   @Test

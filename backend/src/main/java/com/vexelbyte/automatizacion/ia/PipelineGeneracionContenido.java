@@ -15,7 +15,7 @@ import tools.jackson.core.json.JsonReadFeature;
 import tools.jackson.databind.ObjectMapper;
 
 // Orquesta la generacion de contenido: arma el prompt, llama al modelo de IA
-// activo (Anthropic o Gemini, es indiferente aqui gracias a ClienteModeloIA)
+// activo (Gemini, Groq u OpenRouter, es indiferente aqui gracias a ClienteModeloIA)
 // y valida el resultado antes de aceptarlo. Nunca persiste nada: eso lo hace
 // ServicioIngestaArticulos, solo con contenido aprobado.
 @Component

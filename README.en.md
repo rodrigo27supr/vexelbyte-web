@@ -120,7 +120,7 @@ flowchart LR
 | Area | Result |
 | --- | --- |
 | Mobile Lighthouse | 99-100 performance and 100 accessibility, best practices and SEO |
-| Backend tests | 178 (unit and end-to-end HTTP) on every push |
+| Backend tests | 187 (unit and end-to-end HTTP) on every push |
 | Accessibility | WCAG 2.2 AA in both themes, with every contrast calculated |
 | Security | Strict CSP with no external origins, sanitised HTML and no credentials in the repository |
 | Privacy | No cookies or analytics, and fonts served from the site's own domain |

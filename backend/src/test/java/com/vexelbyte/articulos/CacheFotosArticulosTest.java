@@ -20,10 +20,10 @@ class CacheFotosArticulosTest {
   void devuelveLaFotoGuardadaHastaQueCaduca() {
     cacheFotos.guardar("oppo-k14-plus", new FotoServida(new byte[] {1}, "image/jpeg"));
 
-    reloj.avanzarMinutos(59);
+    reloj.avanzarMinutos(23 * 60);
     assertThat(cacheFotos.obtener("oppo-k14-plus")).isPresent();
 
-    reloj.avanzarMinutos(2);
+    reloj.avanzarMinutos(2 * 60);
     assertThat(cacheFotos.obtener("oppo-k14-plus")).isEmpty();
   }
 

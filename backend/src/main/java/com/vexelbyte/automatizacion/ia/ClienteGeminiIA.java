@@ -50,13 +50,12 @@ public class ClienteGeminiIA implements ClienteModeloIA {
     // proveedor en vez de insistir contra una cuota agotada.
     limitadorFrecuencia.esperarTurno();
 
-    // La api-key de Gemini viaja como query param, no como cabecera — asi
-    // la expone la API de Google, a diferencia de Anthropic.
+    // La clave va en cabecera y no en ?key=: un fallo de conexion incluye la URL
+    // en el mensaje de la excepcion, y la cadena de proveedores lo escribe en el
+    // registro de Render.
     RespuestaGemini respuesta = clienteHttp.post()
-        .uri(constructorUri -> constructorUri
-            .path("/v1beta/models/{modelo}:generateContent")
-            .queryParam("key", claveApi)
-            .build(modelo))
+        .uri("/v1beta/models/{modelo}:generateContent", modelo)
+        .header("x-goog-api-key", claveApi)
         .contentType(MediaType.APPLICATION_JSON)
         .body(solicitud)
         .retrieve()

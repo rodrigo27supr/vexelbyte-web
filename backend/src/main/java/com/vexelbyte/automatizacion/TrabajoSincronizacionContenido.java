@@ -1,5 +1,6 @@
 package com.vexelbyte.automatizacion;
 
+import com.vexelbyte.articulos.CacheLecturaArticulos;
 import com.vexelbyte.articulos.CategoriaArticulo;
 import com.vexelbyte.automatizacion.MaterialFuente.Aplazado;
 import com.vexelbyte.automatizacion.MaterialFuente.MaterialListo;
@@ -56,6 +57,7 @@ public class TrabajoSincronizacionContenido {
   private final ServicioReescrituraArticulos servicioReescritura;
   private final PropiedadesFeedHardware propiedadesFeed;
   private final NotificadorReconstruccionWeb notificadorReconstruccionWeb;
+  private final CacheLecturaArticulos cacheLecturaArticulos;
 
   public TrabajoSincronizacionContenido(
       ClienteFeedNoticiasHardware clienteFeed,
@@ -68,7 +70,8 @@ public class TrabajoSincronizacionContenido {
       CalendarioSecciones calendarioSecciones,
       ServicioReescrituraArticulos servicioReescritura,
       PropiedadesFeedHardware propiedadesFeed,
-      NotificadorReconstruccionWeb notificadorReconstruccionWeb) {
+      NotificadorReconstruccionWeb notificadorReconstruccionWeb,
+      CacheLecturaArticulos cacheLecturaArticulos) {
     this.clienteFeed = clienteFeed;
     this.preparadorMaterial = preparadorMaterial;
     this.clasificadorTitulares = clasificadorTitulares;
@@ -80,6 +83,7 @@ public class TrabajoSincronizacionContenido {
     this.servicioReescritura = servicioReescritura;
     this.propiedadesFeed = propiedadesFeed;
     this.notificadorReconstruccionWeb = notificadorReconstruccionWeb;
+    this.cacheLecturaArticulos = cacheLecturaArticulos;
   }
 
   // Los feeds publican varias noticias al dia, no por minuto: cada 6 horas es
@@ -94,8 +98,10 @@ public class TrabajoSincronizacionContenido {
     // Las fotos no dependen de la IA: se completan aunque el ciclo se corte.
     int noticiasVisiblesNuevas = completarFotosPendientes();
     // Una noticia sale en la API cuando su foto esta revisada: es el momento de
-    // reconstruir la web, y no antes, o saldria con la portada de datos.
+    // reconstruir la web, y no antes, o saldria con la portada de datos. Vacio
+    // antes la cache de lectura, o la reconstruccion leeria la lista vieja.
     if (noticiasVisiblesNuevas > 0) {
+      cacheLecturaArticulos.invalidar();
       notificadorReconstruccionWeb.solicitarReconstruccion();
     }
   }

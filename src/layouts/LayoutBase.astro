@@ -1,7 +1,6 @@
 ---
 import Cabecera from '../components/layout/Cabecera.astro';
 import PiePagina from '../components/layout/PiePagina.astro';
-import BannerCookies from '../components/BannerCookies.astro';
 import '../styles/global.css';
 
 interface Props {
@@ -28,11 +27,6 @@ const urlCanonica = new URL(Astro.url.pathname, Astro.site);
 // Sin foto del producto, el enlace compartido sale con la tarjeta de marca.
 // Tiene que ser una URL absoluta.
 const urlImagenOg = imagenOg ?? new URL('/og-vexelbyte.png', Astro.site).href;
-
-// Sin ID de medicion real no hay analitica: ni banner de cookies (no habria
-// nada que consentir) ni scripts de Google. Se activa definiendo la variable
-// de build ID_MEDICION_GA4 en Vercel, ver .env.example.
-const idMedicionGa4 = import.meta.env.ID_MEDICION_GA4;
 ---
 
 <html lang="es">
@@ -79,6 +73,5 @@ const idMedicionGa4 = import.meta.env.ID_MEDICION_GA4;
       <slot />
     </main>
     <PiePagina />
-    {idMedicionGa4 && <BannerCookies idMedicionGa4={idMedicionGa4} />}
   </body>
 </html>

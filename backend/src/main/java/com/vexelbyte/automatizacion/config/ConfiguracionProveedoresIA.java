@@ -2,7 +2,6 @@ package com.vexelbyte.automatizacion.config;
 
 import com.vexelbyte.automatizacion.common.LimitadorFrecuencia;
 import com.vexelbyte.automatizacion.ia.CadenaProveedoresIA;
-import com.vexelbyte.automatizacion.ia.ClienteAnthropicIA;
 import com.vexelbyte.automatizacion.ia.ClienteCompatibleOpenAiIA;
 import com.vexelbyte.automatizacion.ia.ClienteGeminiIA;
 import com.vexelbyte.automatizacion.ia.ClienteModeloIA;
@@ -18,8 +17,9 @@ import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 
 // Monta la cadena de proveedores en orden de preferencia: primero los modelos
-// gratuitos de Gemini (misma clave, cuotas separadas), luego Groq y
-// OpenRouter como respaldo, y Anthropic al final porque es de pago.
+// gratuitos de Gemini (misma clave, cuotas separadas) y luego Groq y
+// OpenRouter como respaldo. Todos tienen plan gratuito: ningun proveedor de
+// pago, decision del Tech Lead (2026-10-16).
 @Configuration
 public class ConfiguracionProveedoresIA {
 
@@ -36,7 +36,6 @@ public class ConfiguracionProveedoresIA {
     anadirModelosGemini(propiedades.gemini(), eslabones);
     anadirProveedorCompatible("groq", propiedades.groq(), eslabones);
     anadirProveedorCompatible("openrouter", propiedades.openrouter(), eslabones);
-    anadirAnthropic(propiedades.anthropic(), eslabones);
 
     if (eslabones.isEmpty()) {
       REGISTRO.warn("No hay ningun proveedor de IA con clave: el job no podra redactar articulos");
@@ -67,15 +66,6 @@ public class ConfiguracionProveedoresIA {
     eslabones.add(new ClienteCompatibleOpenAiIA(
         nombreProveedor, crearClienteHttp(proveedor.urlBase()), proveedor.apiKey(), proveedor.modelo(),
         crearLimitador(proveedor.llamadasPorMinuto())));
-  }
-
-  private void anadirAnthropic(PropiedadesIA.ProveedorAnthropic anthropic, List<ClienteModeloIA> eslabones) {
-    if (anthropic == null || !tieneClave(anthropic.apiKey())) {
-      return;
-    }
-    eslabones.add(new ClienteAnthropicIA(
-        crearClienteHttp(anthropic.urlBase()), anthropic.apiKey(), anthropic.modelo(), anthropic.version(),
-        crearLimitador(anthropic.llamadasPorMinuto())));
   }
 
   private boolean tieneClave(String claveApi) {
