@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.Clock;
@@ -20,8 +22,9 @@ import tools.jackson.databind.ObjectMapper;
 class ServicioLecturaArticulosTest {
 
   private final ArticuloRepository repositorioArticulos = mock(ArticuloRepository.class);
+  private final FotoArticuloAlmacenadaRepository repositorioFotos = mock(FotoArticuloAlmacenadaRepository.class);
   private final ServicioLecturaArticulos servicioLectura =
-      new ServicioLecturaArticulos(repositorioArticulos, mock(FotoArticuloAlmacenadaRepository.class), new ObjectMapper(),
+      new ServicioLecturaArticulos(repositorioArticulos, repositorioFotos, new ObjectMapper(),
           Clock.fixed(Instant.parse("2027-03-16T08:00:00Z"), ZoneOffset.UTC));
 
   private Articulo construirArticuloPublicado(String slug) {
@@ -104,6 +107,37 @@ class ServicioLecturaArticulosTest {
 
     assertThat(detalle.especificaciones()).isEmpty();
     assertThat(detalle.puntosClave()).isEmpty();
+  }
+
+  @Test
+  void unaFotoYaServidaNoVuelveALeerseDeLaBase() {
+    Articulo articulo = construirArticuloPublicado("oppo-k14-plus");
+    articulo.setId(5L);
+    FotoArticuloAlmacenada foto = new FotoArticuloAlmacenada();
+    foto.setArticuloId(5L);
+    foto.setContenido(new byte[] {1, 2, 3});
+    foto.setTipoContenido("image/jpeg");
+    when(repositorioArticulos.buscarPublicadoPorSlug(eq("oppo-k14-plus"), any())).thenReturn(Optional.of(articulo));
+    when(repositorioFotos.findById(5L)).thenReturn(Optional.of(foto));
+
+    ResponseEntity<byte[]> primera = servicioLectura.obtenerFoto("oppo-k14-plus");
+    ResponseEntity<byte[]> segunda = servicioLectura.obtenerFoto("oppo-k14-plus");
+
+    assertThat(primera.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThat(segunda.getBody()).containsExactly(1, 2, 3);
+    // Cada lectura de la base gasta transferencia de Neon: la foto se lee una vez.
+    verify(repositorioFotos, times(1)).findById(5L);
+    verify(repositorioArticulos, times(1)).buscarPublicadoPorSlug(eq("oppo-k14-plus"), any());
+  }
+
+  @Test
+  void laFotoDeUnArticuloNoPublicadoDa404SinGuardarseEnCache() {
+    when(repositorioArticulos.buscarPublicadoPorSlug(eq("despublicado"), any())).thenReturn(Optional.empty());
+
+    assertThat(servicioLectura.obtenerFoto("despublicado").getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    assertThat(servicioLectura.obtenerFoto("despublicado").getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+
+    verify(repositorioArticulos, times(2)).buscarPublicadoPorSlug(eq("despublicado"), any());
   }
 
   @Test

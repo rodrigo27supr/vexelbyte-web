@@ -57,13 +57,15 @@ class TrabajoSincronizacionContenidoTest {
   private final ServicioFotosArticulos servicioFotos = mock(ServicioFotosArticulos.class);
   private final CalendarioSecciones calendarioSecciones = mock(CalendarioSecciones.class);
   private final ServicioReescrituraArticulos servicioReescritura = mock(ServicioReescrituraArticulos.class);
+  private final NotificadorReconstruccionWeb notificadorReconstruccionWeb = mock(NotificadorReconstruccionWeb.class);
 
   // El preparador es real, con sus clientes externos simulados: asi estos
   // tests cubren tambien la decision de que material recibe la IA.
   private final TrabajoSincronizacionContenido trabajo = new TrabajoSincronizacionContenido(
       clienteFeed, new PreparadorMaterialFuente(clienteNoticiaGsmarena, clienteBusqueda), clasificadorTitulares,
       pipelineGeneracionContenido, servicioIngestaArticulos, registroDescartadas, servicioFotos, calendarioSecciones,
-      servicioReescritura, new PropiedadesFeedHardware(List.of(URL_FEED_PC, URL_FEED_MOVILES), 2));
+      servicioReescritura, new PropiedadesFeedHardware(List.of(URL_FEED_PC, URL_FEED_MOVILES), 2),
+      notificadorReconstruccionWeb);
 
   // Por defecto todas las secciones estan abiertas y el clasificador aprueba
   // cada titular en una seccion distinta (rotando), para que el ritmo por
@@ -577,6 +579,33 @@ class TrabajoSincronizacionContenidoTest {
 
     verify(servicioReescritura).reescribirArticulosPendientes();
     verify(servicioFotos).completarFotosPendientes();
+  }
+
+  @Test
+  void pideReconstruirLaWebSoloCuandoElCicloDejaNoticiasVisiblesNuevas() {
+    when(servicioFotos.completarFotosPendientes()).thenReturn(2);
+
+    trabajo.sincronizarNoticiasHardware();
+
+    verify(notificadorReconstruccionWeb).solicitarReconstruccion();
+  }
+
+  @Test
+  void noReconstruyeLaWebSiElCicloNoPublicaNada() {
+    when(servicioFotos.completarFotosPendientes()).thenReturn(0);
+
+    trabajo.sincronizarNoticiasHardware();
+
+    verify(notificadorReconstruccionWeb, never()).solicitarReconstruccion();
+  }
+
+  @Test
+  void noReconstruyeLaWebSiLasFotosFallanYElCicloNoSeCorta() {
+    when(servicioFotos.completarFotosPendientes()).thenThrow(new IllegalStateException("fallo inesperado"));
+
+    trabajo.sincronizarNoticiasHardware();
+
+    verify(notificadorReconstruccionWeb, never()).solicitarReconstruccion();
   }
 
   @Test

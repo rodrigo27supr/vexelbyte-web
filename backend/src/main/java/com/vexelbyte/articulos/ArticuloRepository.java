@@ -4,6 +4,7 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Limit;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -34,6 +35,11 @@ public interface ArticuloRepository extends JpaRepository<Articulo, Long> {
   List<Articulo> findTop50ByBorradorFalseAndFotoRevisadaFalseOrderByFechaPublicacionDesc();
 
   boolean existsByFotoUrl(String fotoUrl);
+
+  // Solo las fechas: cargar los articulos traeria de Neon los cuerpos de los 300
+  // en cada pasada de la retencion.
+  @Query("select articulo.fechaPublicacion from Articulo articulo where articulo.fotoUrl is not null order by articulo.fechaPublicacion desc")
+  List<OffsetDateTime> buscarFechasDeArticulosConFoto(Pageable paginacion);
 
   // Los mas recientes primero: son los que mas se leen y los que tienen la
   // cobertura mas facil de encontrar.

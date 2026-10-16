@@ -23,7 +23,7 @@
 
 ## Mi papel
 
-He dirigido el proyecto de principio a fin. El código lo ha escrito un agente de programación (Claude Code); las decisiones, la auditoría y la puesta en marcha han sido mías.
+He actuado como Tech Lead del proyecto. El código lo ha escrito un agente de programación (Claude Code); las decisiones, la auditoría y la puesta en marcha han sido mías.
 
 **Diseñé el producto y fijé las reglas.** Escribí el estándar que el agente debía cumplir y le di skills de calidad para cada entrega: rendimiento, accesibilidad, seguridad, SEO y diseño. Todo cambio se prueba primero en local, en una rama aparte y contra una copia de la base de datos, y solo llega a producción cuando yo lo apruebo.
 
@@ -46,7 +46,7 @@ He dirigido el proyecto de principio a fin. El código lo ha escrito un agente d
 | Gemini, Groq y OpenRouter | Modelos de IA en cadena | Si uno agota su cuota gratuita, pasa al siguiente solo |
 | Tavily | Buscar qué publican otros medios | Sus términos permiten publicar el resultado, a diferencia de la búsqueda de Google en Gemini |
 | Pexels | Fotos ilustrativas con licencia | Cuando no hay material de prensa oficial |
-| cron-job.org y GitHub Actions | Publicar a su hora y reconstruir la web | El cron gratuito de GitHub llegaba con horas de retraso |
+| cron-job.org y GitHub Actions | Despertar el backend a su hora y respaldo de la reconstrucción | El cron gratuito de GitHub llegaba con horas de retraso |
 
 **Antes y después de mi auditoría.** A la izquierda, la primera versión que me entregó el agente; a la derecha, la web tras mis correcciones:
 
@@ -59,7 +59,7 @@ He dirigido el proyecto de principio a fin. El código lo ha escrito un agente d
 - **Contenido:** de artículos de un minuto con una sola fuente (~250 palabras) a una media de 440 palabras con 4 medios citados.
 - **Criterio:** noticias como la del nodo de fabricación de TSMC, que se publicaba como si fuera hardware nuevo, ya no pasan el filtro. Retiré 15 artículos así.
 
-**Calculé que dure.** Con una noticia por sección cada dos días y una política de retención (fotos al año y medio, artículos a los diez años), la base de datos se estabiliza en unos 160 MB de los 500 gratuitos.
+**Calculé que dure.** Con una noticia por sección cada dos días y una política de retención (solo las 300 fotos más recientes, artículos a los diez años), la base de datos se estabiliza en unos 160 MB de los 500 gratuitos. Y la transferencia de datos, que fue lo que se me escapó, queda acotada por diseño bajo los 5 GB mensuales (ver abajo).
 
 ## Cómo funciona
 
@@ -87,8 +87,8 @@ flowchart LR
     TAVILY --> RED
     PRENSA --> VISION --> DB
     PEXELS --> DB
-    DB --> WEB
-    CRON -- reconstruye y despierta --> WEB
+    DB -- reconstruye al publicar --> WEB
+    CRON -- despierta el backend --> DB
 ```
 
 1. **Clasificador:** revisa 30 titulares en una sola llamada y solo deja pasar productos de hardware concretos (lanzamientos, especificaciones, pruebas), asignando a cada uno su sección.
@@ -111,13 +111,14 @@ flowchart LR
 | El despliegue caía al descargar imágenes de terceros | El backend descarga, comprime y sirve cada foto; la web no depende de nadie más |
 | La cuota gratuita de Gemini es de 20 peticiones al día | Cadena de cinco modelos con respaldo automático y clasificación por lotes |
 | El cron de GitHub publicaba con horas de retraso | cron-job.org a las 08:00 en hora de Madrid, sin tokens que caduquen |
+| Neon cortó la base al agotar los 5 GB mensuales de transferencia gratuita: cada reconstrucción de la web leía la lista 75 veces y las fotos 736 | La web pide la lista una vez, el backend guarda en memoria las fotos servidas, la web se reconstruye solo cuando hay noticias nuevas y solo las 300 fotos más recientes salen de la base: el consumo máximo queda acotado aunque el archivo crezca |
 
 ## Calidad
 
 | Área | Resultado |
 | --- | --- |
 | Lighthouse móvil | 99-100 en rendimiento y 100 en accesibilidad, buenas prácticas y SEO |
-| Tests del backend | 163 (unitarios y HTTP de extremo a extremo) en cada push |
+| Tests del backend | 178 (unitarios y HTTP de extremo a extremo) en cada push |
 | Accesibilidad | WCAG 2.2 AA en los dos temas, con cada contraste calculado |
 | Seguridad | CSP estricta sin orígenes externos, HTML saneado y ninguna credencial en el repositorio |
 | Privacidad | Sin cookies ni analítica, y tipografías servidas desde el propio dominio |

@@ -183,8 +183,10 @@ class ServicioFotosArticulosTest {
     when(clienteImagenFuente.obtenerUrlImagenPrincipal(siguiente.getEnlaceFuente())).thenReturn(Optional.empty());
     when(clientePexels.buscarFoto(anyString(), any())).thenReturn(Optional.of(FOTO_PEXELS));
 
-    servicioFotos.completarFotosPendientes();
+    int articulosRevisados = servicioFotos.completarFotosPendientes();
 
+    // Solo cuenta el que ya es visible: el que fallo sigue oculto hasta otro ciclo.
+    assertThat(articulosRevisados).isEqualTo(1);
     assertThat(conFallo.isFotoRevisada()).isFalse();
     assertThat(siguiente.isFotoRevisada()).isTrue();
   }
@@ -198,8 +200,9 @@ class ServicioFotosArticulosTest {
     when(clasificadorImagenes.revisarImagen(any(ImagenParaIA.class), anyString(), anyString()))
         .thenThrow(new SinProveedorIADisponibleException("sin cuota"));
 
-    servicioFotos.completarFotosPendientes();
+    int articulosRevisados = servicioFotos.completarFotosPendientes();
 
+    assertThat(articulosRevisados).isZero();
     assertThat(primero.isFotoRevisada()).isFalse();
     assertThat(segundo.isFotoRevisada()).isFalse();
     verify(clientePexels, never()).buscarFoto(anyString(), any());
@@ -216,9 +219,10 @@ class ServicioFotosArticulosTest {
         .thenThrow(new SinProveedorIADisponibleException("modelos retirados"));
     when(clientePexels.buscarFoto(eq("smartphone"), any())).thenReturn(Optional.of(FOTO_PEXELS));
 
-    servicioFotos.completarFotosPendientes();
+    int articulosRevisados = servicioFotos.completarFotosPendientes();
 
     // La reciente espera a que vuelva la vision; la atrasada no se queda sin foto.
+    assertThat(articulosRevisados).isEqualTo(1);
     assertThat(reciente.isFotoRevisada()).isFalse();
     assertThat(atrasada.isFotoRevisada()).isTrue();
     assertThat(atrasada.getFotoUrl()).isEqualTo(URL_IMAGEN_PEXELS);

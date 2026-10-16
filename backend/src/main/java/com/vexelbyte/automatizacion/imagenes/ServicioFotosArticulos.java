@@ -80,13 +80,16 @@ public class ServicioFotosArticulos {
     this.reloj = reloj;
   }
 
+  // Devuelve cuantos articulos han quedado con la foto revisada, es decir,
+  // visibles en la API: el ciclo reconstruye la web solo si hay alguno.
   @Transactional
-  public void completarFotosPendientes() {
+  public int completarFotosPendientes() {
     List<Articulo> articulosPendientes = repositorioArticulos
         .findTop50ByBorradorFalseAndFotoRevisadaFalseOrderByFechaPublicacionDesc().stream()
         .limit(MAXIMO_REVISIONES_POR_CICLO)
         .toList();
     int fotosGuardadas = 0;
+    int articulosRevisados = 0;
     boolean hayProveedorDeVision = true;
     for (Articulo articulo : articulosPendientes) {
       try {
@@ -94,6 +97,7 @@ public class ServicioFotosArticulos {
           try {
             fotosGuardadas += revisarArticulo(articulo) ? 1 : 0;
             articulo.setFotoRevisada(true);
+            articulosRevisados++;
             continue;
           } catch (SinProveedorIADisponibleException sinProveedor) {
             REGISTRO.warn("Sin proveedor de IA para revisar imagenes; solo pongo foto de Pexels a las noticias "
@@ -104,6 +108,7 @@ public class ServicioFotosArticulos {
         if (haAgotadoLaEsperaDeVision(articulo)) {
           fotosGuardadas += ponerFotoIlustrativa(articulo, Optional.empty()) ? 1 : 0;
           articulo.setFotoRevisada(true);
+          articulosRevisados++;
         }
       } catch (RuntimeException falloFuente) {
         // Sin marcarlo como revisado: se reintenta en el siguiente ciclo.
@@ -113,6 +118,7 @@ public class ServicioFotosArticulos {
     if (!articulosPendientes.isEmpty()) {
       REGISTRO.info("Fotos: {} guardadas de {} articulos revisados", fotosGuardadas, articulosPendientes.size());
     }
+    return articulosRevisados;
   }
 
   private boolean haAgotadoLaEsperaDeVision(Articulo articulo) {

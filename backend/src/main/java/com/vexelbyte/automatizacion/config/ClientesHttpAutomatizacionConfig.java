@@ -39,6 +39,14 @@ public class ClientesHttpAutomatizacionConfig {
         .build();
   }
 
+  @Bean
+  public RestClient clienteHttpReconstruccionWeb() {
+    HttpClient clienteJdk = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
+    JdkClientHttpRequestFactory fabricaPeticiones = new JdkClientHttpRequestFactory(clienteJdk);
+    fabricaPeticiones.setReadTimeout(Duration.ofSeconds(30));
+    return RestClient.builder().requestFactory(fabricaPeticiones).build();
+  }
+
   // La busqueda avanzada de Tavily lee varias paginas antes de responder:
   // le doy un minuto de lectura, lejos de los 120 s de la IA.
   @Bean

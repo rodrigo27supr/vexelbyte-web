@@ -110,6 +110,30 @@ class ServicioRetencionContenidoTest {
   }
 
   @Test
+  void conservaSoloLasFotosDeLosTrescientosArticulosMasRecientes() {
+    // 302 articulos con foto, todos dentro del ano y medio: solo manda el tope.
+    OffsetDateTime primerDia = OffsetDateTime.parse("2036-06-01T00:00:00Z");
+    Articulo masAntiguo = null;
+    Articulo segundoMasAntiguo = null;
+    Articulo ultimoConservado = null;
+    for (int posicion = 0; posicion < 302; posicion++) {
+      Articulo articulo = guardarArticuloConFoto("articulo-" + posicion, primerDia.plusDays(posicion).toString());
+      masAntiguo = posicion == 0 ? articulo : masAntiguo;
+      segundoMasAntiguo = posicion == 1 ? articulo : segundoMasAntiguo;
+      ultimoConservado = posicion == 2 ? articulo : ultimoConservado;
+    }
+
+    aplicarRetencionEnTransaccion();
+
+    assertThat(repositorioFotos.count()).isEqualTo(300);
+    assertThat(repositorioArticulos.findAll()).hasSize(302);
+    assertThat(repositorioArticulos.findById(masAntiguo.getId()).orElseThrow().getFotoUrl()).isNull();
+    assertThat(repositorioArticulos.findById(segundoMasAntiguo.getId()).orElseThrow().getFotoUrl()).isNull();
+    assertThat(repositorioArticulos.findById(ultimoConservado.getId()).orElseThrow().getFotoUrl()).isNotNull();
+    assertThat(repositorioFotos.existsById(ultimoConservado.getId())).isTrue();
+  }
+
+  @Test
   void borraElArticuloEnteroALosDiezAnos() {
     Articulo decenal = guardarArticuloConFoto("decenal", "2027-05-01T00:00:00Z");
     Articulo casiDecenal = guardarArticuloConFoto("casi-decenal", "2027-07-01T00:00:00Z");

@@ -4,6 +4,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.http.CacheControl;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -39,6 +40,7 @@ class ServicioLecturaArticulos {
   private final FotoArticuloAlmacenadaRepository repositorioFotos;
   private final ObjectMapper mapeadorJson;
   private final Clock reloj;
+  private final CacheFotosArticulos cacheFotos;
 
   ServicioLecturaArticulos(
       ArticuloRepository repositorioArticulos, FotoArticuloAlmacenadaRepository repositorioFotos,
@@ -47,6 +49,7 @@ class ServicioLecturaArticulos {
     this.repositorioFotos = repositorioFotos;
     this.mapeadorJson = mapeadorJson;
     this.reloj = reloj;
+    this.cacheFotos = new CacheFotosArticulos(reloj);
   }
 
   List<ArticuloResumenResponse> listarPublicados() {
@@ -77,13 +80,23 @@ class ServicioLecturaArticulos {
 
   // Igual que el detalle: la foto de un articulo despublicado da 404.
   ResponseEntity<byte[]> obtenerFoto(String slug) {
-    return repositorioArticulos.buscarPublicadoPorSlug(slug, calcularLimiteSinFoto())
-        .flatMap(articulo -> repositorioFotos.findById(articulo.getId()))
+    return cacheFotos.obtener(slug)
+        .or(() -> leerFotoDeLaBase(slug))
         .map(foto -> ResponseEntity.ok()
-            .contentType(MediaType.parseMediaType(foto.getTipoContenido()))
+            .contentType(MediaType.parseMediaType(foto.tipoContenido()))
             .cacheControl(CacheControl.maxAge(CACHE_FOTOS).cachePublic())
-            .body(foto.getContenido()))
+            .body(foto.contenido()))
         .orElseGet(() -> ResponseEntity.notFound().build());
+  }
+
+  private Optional<CacheFotosArticulos.FotoServida> leerFotoDeLaBase(String slug) {
+    Optional<CacheFotosArticulos.FotoServida> foto = repositorioArticulos
+        .buscarPublicadoPorSlug(slug, calcularLimiteSinFoto())
+        .flatMap(articulo -> repositorioFotos.findById(articulo.getId()))
+        .map(fotoAlmacenada -> new CacheFotosArticulos.FotoServida(
+            fotoAlmacenada.getContenido(), fotoAlmacenada.getTipoContenido()));
+    foto.ifPresent(fotoLeida -> cacheFotos.guardar(slug, fotoLeida));
+    return foto;
   }
 
   private OffsetDateTime calcularLimiteSinFoto() {

@@ -25,7 +25,7 @@
 
 ## My role
 
-I directed the project from start to finish. The code was written by a coding agent (Claude Code); the decisions, the auditing and the rollout were mine.
+I acted as the project's Tech Lead. The code was written by a coding agent (Claude Code); the decisions, the auditing and the rollout were mine.
 
 **I designed the product and set the rules.** I wrote the standard the agent had to follow and gave it quality skills for every delivery: performance, accessibility, security, SEO and design. Every change is tested locally first, on a separate branch and against a copy of the database, and only reaches production when I approve it.
 
@@ -48,7 +48,7 @@ I directed the project from start to finish. The code was written by a coding ag
 | Gemini, Groq and OpenRouter | Chained AI models | If one runs out of free quota, the next one takes over |
 | Tavily | Finding what other outlets published | Its terms allow publishing the result, unlike Google search in Gemini |
 | Pexels | Licensed illustrative photos | When there is no official press material |
-| cron-job.org and GitHub Actions | Publishing on time and rebuilding the site | The free GitHub cron arrived hours late |
+| cron-job.org and GitHub Actions | Waking the backend on time and a rebuild fallback | The free GitHub cron arrived hours late |
 
 **Before and after my audit.** On the left, the first version the agent delivered; on the right, the site after my corrections:
 
@@ -61,7 +61,7 @@ I directed the project from start to finish. The code was written by a coding ag
 - **Content:** from one-minute, single-source articles (~250 words) to an average of 440 words with 4 outlets cited.
 - **Criteria:** stories like TSMC's manufacturing node, published as if it were new hardware, no longer pass the filter. I removed 15 articles like that.
 
-**I made sure it lasts.** With one story per section every other day and a retention policy (photos after eighteen months, articles after ten years), the database settles at about 160 MB of the free 500.
+**I made sure it lasts.** With one story per section every other day and a retention policy (only the 300 most recent photos, articles after ten years), the database settles at about 160 MB of the free 500. And data transfer, which is what I missed, is bounded by design under the monthly 5 GB (see below).
 
 ## How it works
 
@@ -89,8 +89,8 @@ flowchart LR
     TAVILY --> WRT
     PRESS --> VISION --> DB
     PEXELS --> DB
-    DB --> WEB
-    CRON -- rebuilds and wakes --> WEB
+    DB -- rebuilds on publish --> WEB
+    CRON -- wakes the backend --> DB
 ```
 
 1. **Classifier:** reviews 30 headlines in a single call and only lets through specific hardware products (launches, specs, tests), assigning each one its section.
@@ -113,13 +113,14 @@ flowchart LR
 | Deployments failed while downloading third-party images | The backend downloads, compresses and serves every photo; the site depends on nobody else |
 | Gemini's free quota is 20 requests a day | A chain of five models with automatic fallback, plus batch classification |
 | The GitHub cron published hours late | cron-job.org at 08:00 Madrid time, with no expiring tokens |
+| Neon cut the database off after the free 5 GB of monthly transfer ran out: every site rebuild read the list 75 times and the photos 736 | The site requests the list once, the backend keeps served photos in memory, the site rebuilds only when there is news and only the 300 most recent photos come from the database: the maximum use stays bounded however far the archive grows |
 
 ## Quality
 
 | Area | Result |
 | --- | --- |
 | Mobile Lighthouse | 99-100 performance and 100 accessibility, best practices and SEO |
-| Backend tests | 163 (unit and end-to-end HTTP) on every push |
+| Backend tests | 178 (unit and end-to-end HTTP) on every push |
 | Accessibility | WCAG 2.2 AA in both themes, with every contrast calculated |
 | Security | Strict CSP with no external origins, sanitised HTML and no credentials in the repository |
 | Privacy | No cookies or analytics, and fonts served from the site's own domain |

@@ -55,6 +55,7 @@ public class TrabajoSincronizacionContenido {
   private final CalendarioSecciones calendarioSecciones;
   private final ServicioReescrituraArticulos servicioReescritura;
   private final PropiedadesFeedHardware propiedadesFeed;
+  private final NotificadorReconstruccionWeb notificadorReconstruccionWeb;
 
   public TrabajoSincronizacionContenido(
       ClienteFeedNoticiasHardware clienteFeed,
@@ -66,7 +67,8 @@ public class TrabajoSincronizacionContenido {
       ServicioFotosArticulos servicioFotos,
       CalendarioSecciones calendarioSecciones,
       ServicioReescrituraArticulos servicioReescritura,
-      PropiedadesFeedHardware propiedadesFeed) {
+      PropiedadesFeedHardware propiedadesFeed,
+      NotificadorReconstruccionWeb notificadorReconstruccionWeb) {
     this.clienteFeed = clienteFeed;
     this.preparadorMaterial = preparadorMaterial;
     this.clasificadorTitulares = clasificadorTitulares;
@@ -77,6 +79,7 @@ public class TrabajoSincronizacionContenido {
     this.calendarioSecciones = calendarioSecciones;
     this.servicioReescritura = servicioReescritura;
     this.propiedadesFeed = propiedadesFeed;
+    this.notificadorReconstruccionWeb = notificadorReconstruccionWeb;
   }
 
   // Los feeds publican varias noticias al dia, no por minuto: cada 6 horas es
@@ -89,7 +92,12 @@ public class TrabajoSincronizacionContenido {
     // que sobre, y un fallo suyo no afecta al resto del ciclo.
     reescribirArticulosPendientes();
     // Las fotos no dependen de la IA: se completan aunque el ciclo se corte.
-    completarFotosPendientes();
+    int noticiasVisiblesNuevas = completarFotosPendientes();
+    // Una noticia sale en la API cuando su foto esta revisada: es el momento de
+    // reconstruir la web, y no antes, o saldria con la portada de datos.
+    if (noticiasVisiblesNuevas > 0) {
+      notificadorReconstruccionWeb.solicitarReconstruccion();
+    }
   }
 
   private void reescribirArticulosPendientes() {
@@ -182,12 +190,13 @@ public class TrabajoSincronizacionContenido {
     };
   }
 
-  private void completarFotosPendientes() {
+  private int completarFotosPendientes() {
     try {
-      servicioFotos.completarFotosPendientes();
+      return servicioFotos.completarFotosPendientes();
     } catch (RuntimeException falloFotos) {
       // Sin foto el articulo usa la portada generada: nunca bloquea el ciclo.
       REGISTRO.warn("No pude completar las fotos pendientes: {}", falloFotos.getMessage());
+      return 0;
     }
   }
 

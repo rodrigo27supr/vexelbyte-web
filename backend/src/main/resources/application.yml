@@ -24,6 +24,10 @@ management:
         include: health,info
 
 vexelbyte:
+  web:
+    # Deploy Hook de Vercel (secreto, solo por variable de entorno): el ciclo lo llama
+    # al publicar una noticia nueva. Sin el, reconstruyen los respaldos.
+    url-deploy-hook: ${URL_DEPLOY_HOOK_VERCEL:}
   feed-hardware:
     # Fuentes RSS 2.0 publicas, separadas por comas: TechPowerUp para hardware
     # de PC y GSMArena para smartphones y tablets. Tom's Hardware quedo fuera

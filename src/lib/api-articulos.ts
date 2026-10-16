@@ -85,7 +85,22 @@ function resolverFoto<Articulo extends ArticuloResumen>(articulo: Articulo): Art
   return articulo;
 }
 
+// Cada pagina del build pide la lista entera (unas 75 veces por reconstruccion)
+// y cada peticion sale de Neon, cuyo plan gratuito corta la base al llegar a
+// 5 GB de transferencia al mes: en el build la pido una sola vez. En desarrollo
+// no la guardo, para ver las noticias nuevas sin reiniciar el servidor.
+let articulosPublicadosPendientes: Promise<ArticuloResumen[]> | null = null;
+
 export async function obtenerArticulosPublicados(): Promise<ArticuloResumen[]> {
+  if (!import.meta.env.PROD) {
+    return pedirArticulosPublicados();
+  }
+  articulosPublicadosPendientes ??= pedirArticulosPublicados();
+  // Copia: ninguna pagina debe poder reordenar la lista de las demas.
+  return [...(await articulosPublicadosPendientes)];
+}
+
+async function pedirArticulosPublicados(): Promise<ArticuloResumen[]> {
   const respuesta = await pedirApi('/api/articulos');
   if (respuesta === null) {
     return [];
